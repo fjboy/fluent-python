@@ -1,0 +1,9 @@
+*tmp
+*egg-info
+*dist
+*build
+*.pyc
+.vscode
+readme.ipynb
+*.ipynb
+*horizon.conf
