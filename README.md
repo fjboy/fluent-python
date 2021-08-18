@@ -104,9 +104,7 @@ hello word!
 
 ## 3. 文件反向读取
 
-反向读取文件
-
-例如，
+反向读取文件，例如:
 ```
 root@LAPTOP-BFO405GC:~# echo -e "hello\nword" > test.txt
 root@LAPTOP-BFO405GC:~# cat test.txt 
