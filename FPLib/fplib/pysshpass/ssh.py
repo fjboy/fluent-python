@@ -2,6 +2,7 @@ import getpass
 import os
 
 import paramiko
+
 from fplib.common import log
 
 LOG = log.getLogger(__name__)

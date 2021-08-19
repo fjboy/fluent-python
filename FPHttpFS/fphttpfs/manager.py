@@ -25,6 +25,7 @@ class FSManager:
             return os.path.join(self.home, *path)
 
     def path_exists(self, path):
+        LOG.debug('abs path is: %s', self.get_abs_path(path))
         return os.path.exists(self.get_abs_path(path))
 
     def get_path_dict(self, path):

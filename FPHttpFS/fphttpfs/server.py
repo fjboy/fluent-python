@@ -6,8 +6,8 @@ import sys
 from fplib.common import log
 from fplib.server import httpserver
 
-from . import manager
-from . import views
+from fphttpfs import manager
+from fphttpfs import views
 
 LOG = log.getLogger(__name__)
 ROUTE = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +29,8 @@ class FluentHttpFS(httpserver.WsgiServer):
                          template_folder=os.path.join(ROUTE, 'templates'),
                          static_folder=os.path.join(ROUTE, 'static'))
         self.fs_root = fs_root or './'
+        LOG.debug('static_folder=%s, template_path=%s',
+                  self.static_folder, self.template_folder)
         self.driver = manager.FSManager(self.fs_root)
         views.FS_CONTROLLER = manager.FSManager(self.fs_root)
 

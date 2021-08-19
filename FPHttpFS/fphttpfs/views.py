@@ -8,7 +8,7 @@ from flask import views
 from flask import current_app
 
 from fplib.common import log
-from fplib import code
+from fplib import qrcode
 from fplib import fs
 
 LOG = log.getLogger(__name__)
@@ -30,7 +30,7 @@ def get_json_response(data, status=200):
 class HomeView(views.MethodView):
 
     def get(self):
-        return flask.redirect('/index.html', **DEFAULT_CONTEXT)
+        return flask.redirect('/index.html')
 
 
 class IndexView(views.MethodView):
@@ -42,7 +42,7 @@ class IndexView(views.MethodView):
 class QrcodeView(views.MethodView):
 
     def get(self):
-        qr = code.QRCodeExtend(border=1)
+        qr = qrcode.QRCodeExtend(border=1)
         file_name = flask.request.args.get('file')
         file_path = flask.request.args.getlist('path_list') or []
         if file_name and file_path is not None:
@@ -55,6 +55,8 @@ class QrcodeView(views.MethodView):
             content = urllib_parse.urlunparse([
                 'http', current_app.config['SERVER_NAME'], '', None,
                 None, None])
+        LOG.debug('qrcode file_path is %s', file_path)
+        LOG.debug('qrcode content is %s', content)
         qr.add_data(content)
         buffer = qr.parse_image_buffer()
         return buffer.getvalue()
@@ -65,6 +67,7 @@ class DownloadView(views.MethodView):
     def get(self, file_name):
         req_path = flask.request.args.getlist('path_list')
         req_path.append(file_name)
+        LOG.debug('get file %s', req_path)
         if not FS_CONTROLLER.path_exists(req_path):
             return get_json_response({'error': 'path required is not exists'},
                                      status=404)
@@ -75,8 +78,13 @@ class DownloadView(views.MethodView):
 
     def download_file(self, file_path):
         abs_path = FS_CONTROLLER.get_abs_path(file_path)
-        directory = os.path.dirname(abs_path)
         LOG.debug('download file %s', abs_path)
+        try:
+            directory = os.path.dirname(abs_path)
+        except Exception as e:
+            LOG.exception(e)
+            return get_json_response({'error': 'file not found'}, status=404)
+
         return flask.send_from_directory(
             directory, os.path.basename(abs_path), as_attachment=False)
 
@@ -217,7 +225,11 @@ class ActionView(views.MethodView):
         """
         matched_pathes = []
         if params.get('partern'):
-            matched_pathes = FS_CONTROLLER.search(params.get('partern'))
+            for file_item in FS_CONTROLLER.search(params.get('partern')):
+                LOG.debug('file_item %s', file_item)
+                file_item['qrcode'] = self._get_file_qrcode_link(
+                    file_item, file_item['pardir'])
+                matched_pathes.append(file_item)
         return {'dirs': matched_pathes}
 
     def download(self, params):

@@ -6,7 +6,7 @@ from fplib.downloader import driver
 LOG = log.getLogger(__name__)
 
 
-class WgetDriver(driver.DownloadDriver):
+class WgetDriver(driver.BaseDownloadDriver):
     WGET = '/usr/bin/wget'
 
     def download(self, url):

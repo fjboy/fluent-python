@@ -7,7 +7,7 @@ LOG = log.getLogger(__name__)
 DEFAULT_WORKERS = 10
 
 
-class DownloadDriver(object):
+class BaseDownloadDriver(object):
 
     def __init__(self, download_dir=None, timeout=60, workers=None,
                  progress=False, headers=None):

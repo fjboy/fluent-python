@@ -4,6 +4,7 @@ import re
 import urllib3
 
 import bs4
+
 from fplib.common import log
 from fplib.common import progressbar
 from fplib.downloader import driver
@@ -37,7 +38,7 @@ def find_links(url, link_regex=None, headers=None):
     return img_links
 
 
-class Urllib3Driver(driver.DownloadDriver):
+class Urllib3Driver(driver.BaseDownloadDriver):
 
     def __init__(self, headers=None, **kwargs):
         super().__init__(**kwargs)

@@ -32,7 +32,7 @@ class IndexView(views.MethodView):
 
 
 class WsgiServer:
-    RULES = [(r'/', views.IndexView.as_view('index')), ]
+    RULES = [(r'/', IndexView.as_view('index')), ]
 
     def __init__(self, name, host=None, port=80, template_folder=None,
                  static_folder=None):

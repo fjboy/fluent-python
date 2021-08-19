@@ -275,7 +275,6 @@ var app = new Vue({
                     if (status == 200) {
                         self.searchResult = data.dirs;
                         self.children = data.dirs;
-                        console.log(self.searchResult)
                     } else {
                         self.logError(`搜索失败, ${status}, ${data.error}`, autoHideDelay = 5000)
                     }
