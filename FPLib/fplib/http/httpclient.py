@@ -15,19 +15,36 @@ class UnknownException(Exception):
             self._message.format(**kwargs)
         )
 
+class HTTPException(UnknownException):
+    _message = 'Unknown Http Exception'
 
-class Unauthorized(UnknownException):
+
+class InvalidRequest(HTTPException):
+    _message = 'InvalidRequest'
+
+
+class Unauthorized(HTTPException):
     _message = 'Unauthorized'
 
-    def __init__(self):
-        super(Unauthorized, self).__init__()
+
+class NotFound(HTTPException):
+    _message = 'RequestNotFoud'
 
 
-class Http404Error(UnknownException):
-    _message = 'url={url}, resp={resp}'
+class Forbident(HTTPException):
+    _message = 'Forbident'
 
-    def __init__(self, **kwargs):
-        super(Http404Error, self).__init__(**kwargs)
+
+class Timeout(HTTPException):
+    _message = 'Timeout'
+
+
+class ResourceForbident(HTTPException):
+    _message = 'ResourceForbident'
+
+
+class InternalServerError(HTTPException):
+    _message = 'InternalServerError'
 
 
 class Response(object):
@@ -54,6 +71,15 @@ class Response(object):
 
 
 class RestClient(object):
+    ERROR_CODES = {
+        400: InvalidRequest,
+        401: Unauthorized,
+        403: Forbident,
+        404: NotFound,
+        405: ResourceForbident,
+        408: Timeout,
+        500: InternalServerError
+    }
 
     def __init__(self, host, port=80, scheme='http', timeout=60):
         self.host = host
@@ -91,10 +117,8 @@ class RestClient(object):
         self.connection.close()
         resp = Response(resp.status, headers, content)
         LOG.debug("Response: %s", resp)
-        if resp.status == 401:
-            raise Unauthorized()
-        elif resp.status == 404:
-            raise Http404Error(url=self.endpoint + path, resp=resp)
+        if resp.status in self.ERROR_CODES:
+            raise self.ERROR_CODES.get(resp.status)()
         return resp
 
     def get(self, path, headers=None):
