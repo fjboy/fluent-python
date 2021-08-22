@@ -6,8 +6,7 @@ import sys
 from fplib.common import log
 from fplib.server import httpserver
 
-import manager
-import views
+from fphttpfs import views
 
 from werkzeug.routing import BaseConverter
 

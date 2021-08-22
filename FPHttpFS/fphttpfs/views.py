@@ -2,15 +2,13 @@ import os
 import json
 import flask
 
-from six.moves import urllib_parse
-
 from flask import views
 from flask import current_app
 
 from fplib.common import log
 from fplib import fs
 
-import manager
+from fphttpfs import manager
 
 LOG = log.getLogger(__name__)
 FS_CONTROLLER = None
