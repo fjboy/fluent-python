@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
 
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>[[ name ]]</title>
     <link rel="shortcut icon" href="/favicon.ico">
 
@@ -71,18 +72,14 @@
                     </b-collapse>
                 </b-navbar>
             </div>
-            <div class="col-lg-10 col-sm-9" style="margin-top: 10px;">
+            <div class="col-lg-9 col-sm-9" style="margin-top: 10px;">
                 <label for="inputUploadFile"
                     class="btn btn-sm btn-outline-secondary">{{translate('uploadFiles')}}</label>
                 <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{translate('uploadDir')}}</label>
-                <label type="button" class="btn btn-sm btn-outline-secondary"
-                    v-b-modal.modal-newdir>{{translate('newDir')}}</label>
-
                 <label>
                     <b-icon icon="hdd-fill" variant="secondary"></b-icon> {{getDiskUsage()}}
                     <b-progress :max="diskUsage.total" variant="secondary" style="height: 4px;">
-                        <b-progress-bar :value="diskUsage.used">
-                        </b-progress-bar>
+                        <b-progress-bar :value="diskUsage.used"> </b-progress-bar>
                     </b-progress>
                 </label>
 
@@ -94,15 +91,17 @@
                     <input type="file" name="file" id="inputUploadDir" webkitdirectory="" hidden required
                         v-on:change="uploadDir()">
                 </form>
-
             </div>
+
             <div class="col-lg-2  col-sm-3" style="margin-top: 10px;">
                 <div class="custom-control custom-switch">
                     <input class="custom-control-input" type="checkbox" v-model="showAll" id="showAll"
                         v-on:click="toggleShowAll()">
                     <label class="custom-control-label" for="showAll">{{translate('displayAll')}}</label>
                 </div>
-
+            </div>
+            <div class="col-lg-1 col-sm-3" style="margin-top: 10px;">
+                <b-button size="sm" pill variant="outline-secondary" v-on:click="refreshDir()"><b-icon icon="arrow-repeat"></b-icon></b-button>
             </div>
             <div class="col-lg-12">
                 <nav aria-label="breadcrumb">

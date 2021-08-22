@@ -14,7 +14,7 @@ LOG = log.getLogger(__name__)
 FS_CONTROLLER = None
 
 SERVER_NAME = 'FluentHttpFS'
-VERSION = 1.0
+VERSION = 1.1
 
 DEFAULT_CONTEXT = {
     'name': SERVER_NAME,
@@ -129,8 +129,6 @@ class FSView(views.MethodView):
             children = FS_CONTROLLER.get_dirs(req_path, all=all)
         except FileNotFoundError:
             return get_json_response({'error': 'file not found'}, status=404)
-        for child in children:
-            child['pardir'] = req_path
         return {
             'dir': {
                 'path': req_path,

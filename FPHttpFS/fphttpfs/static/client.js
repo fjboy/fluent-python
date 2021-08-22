@@ -26,8 +26,6 @@ class WetoolFS {
             }
         };
         this._getRespData = function(xhr){
-            console.log('xhr.responseText');
-            console.log(xhr.responseText)
             let contentType = xhr.getResponseHeader('content-type');
             if (contentType && contentType.indexOf('application/json') >= 0){
                 return JSON.parse(xhr.responseText);
@@ -70,6 +68,8 @@ class WetoolFS {
         this.delete = function(url, params){this.request('DELETE', url, params)}
         this.post = function(url, params){this.request('POST', url, params)}
         this.put = function(url, params){this.request('PUT', url, params)}
+
+        this.getFsUrl = function(dirPath){return `/fs${this._safe_path(dirPath)}`}
 
         this.fsGet = function(path, showAll=false, params={}){
             // path like: /dir1/dir2

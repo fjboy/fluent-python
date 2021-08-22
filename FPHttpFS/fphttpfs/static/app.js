@@ -104,13 +104,12 @@ var app = new Vue({
         getFSPath: function(dirName){
             let currentDir = this.currentDirList.concat(dirName);
             return this.getDirPath(currentDir)
-            
         },
         getFSUrl: function(dirItem){
             if (dirItem.pardir){
-                return `${dirItem.pardir}/${dirItem.name}`
+                return this.wetoolFS.getFsUrl(`${dirItem.pardir}/${dirItem.name}`);
             }else{
-                return `/fs/${this.getCurrentPath()}/${dirName}`
+                return this.wetoolFS.getFsUrl(this.getFSPath(dirItem.name));
             }
         },
 
@@ -327,16 +326,25 @@ var app = new Vue({
         },
         refreshConnectionLink: function(){
             this.showQrcode('connectionLink2', window.location.href)
+        },
+        refreshDir: function(){
+            var self = this;
+            this.wetoolFS.fsGet(
+                this.currentDirList.join('/'), self.showAll, {
+                    onload_callback: function (status, data) {
+                        if (status == 200) {
+                            self.children = data.dir.children;
+                            self.diskUsage = data.dir.disk_usage;
+                        } else {
+                            self.logError(`请求失败，${status}, ${data.error}`);
+                        }
+                    }
+                }
+            );
         }
     },
 
     created: function () {
         this.goTo(-1);
-
-        // qrcode.makeImage();
-        // console.log(qrcode)
-        // qrcode.makeCode("hello, world");
-
-        // this.changeDirectory('', pushHistory = true);
     },
 });
