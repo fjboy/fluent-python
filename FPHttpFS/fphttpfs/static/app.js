@@ -20,6 +20,7 @@ var app = new Vue({
         searchPartern: '',
         searchResult: [],
         showPardir: false,
+        currentDirList: [],
     },
     methods: {
         logDebug: function (msg, autoHideDelay = 1000, title = 'Debug') {
@@ -77,6 +78,7 @@ var app = new Vue({
                 pathItems, self.showAll,
                 function (status, data) {
                     if (status == 200) {
+                        self.currentDirList.push(child.name);
                         self.pathItems.push({text: child.name, href: '#' })
                         self.children = data.dir.children;
                         self.diskUsage = data.dir.disk_usage;
@@ -93,7 +95,26 @@ var app = new Vue({
             });
             return pathText;
         },
-        goTo: function (clickIndex) {
+        getDirPath: function(dirItems){
+            return dirItems.join('/')
+        },
+        getCurrentPath: function(){
+            return this.getDirPath(this.pathItems);
+        },
+        getFSPath: function(dirName){
+            let currentDir = this.currentDirList.concat(dirName);
+            return this.getDirPath(currentDir)
+            
+        },
+        getFSUrl: function(dirItem){
+            if (dirItem.pardir){
+                return `${dirItem.pardir}/${dirItem.name}`
+            }else{
+                return `/fs/${this.getCurrentPath()}/${dirName}`
+            }
+        },
+
+        goTo: function(clickIndex) {
             var self = this;
             self.showPardir = false;
             let pathItems = self.getPathText(getItemsBefore(self.pathItems, clickIndex));
@@ -101,6 +122,7 @@ var app = new Vue({
                 pathItems, self.showAll,
                 function (status, data) {
                     if (status == 200) {
+                        delItemsAfter(self.currentDirList, clickIndex);
                         delItemsAfter(self.pathItems, clickIndex);
                         self.children = data.dir.children;
                         self.diskUsage = data.dir.disk_usage;
@@ -110,15 +132,25 @@ var app = new Vue({
                 }
             );
         },
-        showQrcode: function (child) {
-            this.downloadFile = child;
+        setFileQrcode: function(dirItem){
+            this.downloadFile = dirItem;
         },
-        getDownloadUrl: function (item) {
+        showFileQrcode: function () {
+            let filePath = null;
+            if (this.downloadFile.pardir){
+                filePath = `${this.downloadFile.pardir}/${this.downloadFile.name}`;
+            }else{
+                filePath = this.getFSPath(this.downloadFile.name);
+            }
+            this.showQrcode('fileQrcode', this.wetoolFS.getFSLink(filePath))
+        },
+        getDownloadUrl: function (dirItem) {
             let urlParams = [];
-            item.pardir.forEach(function(dir) {
+            dirItem.pardir.forEach(function(dir) {
                 urlParams.push(`path_list=${dir}`);
             });
-            return `/download/${encodeURIComponent(item.name)}?${urlParams.join('&')}`
+            urlParams.join('/')
+            return `/fs/${encodeURIComponent(dirItem.name)}`
         },
         deleteDir: function (item) {
             var self = this;
@@ -149,20 +181,21 @@ var app = new Vue({
                 self.logError('文件名不能为空');
                 return;
             }
-            this.wetoolFS.renameDir(
-                self.renameItem.name, self.getPathText(self.pathItems), self.renameItem.newName,
-                function (status, data) {
+            this.wetoolFS.fsRename(
+                self.getFSPath(self.renameItem.name), self.renameItem.newName, {
+                onload_callback: function (status, data) {
                     if (status == 200) {
                         self.logInfo('重命名成功');
                         self.refreshChildren();
                     } else {
-                        self.logError(`重命名失败, ${status}, ${data.error}`, autoHideDelay = 5000)
+                        console.log(data);
+                        console.log(typeof data);
+                        console.log(data.error);
+                        self.logError(`重命名失败, ${data.error}`, autoHideDelay = 5000)
                     }
                 },
-                function () {
-                    self.logError('请求失败')
-                }
-            )
+                onerror_callback: function () { self.logError('请求失败') }
+            });
         },
         showRenameModal: function (item) {
             this.renameItem = { name: item.name, newName: item.name }
@@ -173,9 +206,9 @@ var app = new Vue({
                 self.logWarn('目录不能为空')
                 return;
             }
-            self.wetoolFS.createDir(
-                this.getPathText(self.pathItems).concat(self.newDir.name.split('/')),
-                function (status, data) {
+            let newDir = self.getDirPath(self.currentDirList.concat(self.newDir.name));
+            self.wetoolFS.fsCreate(newDir, {
+                onload_callback: function (status, data) {
                     if (status == 200) {
                         self.logInfo('目录创建成功');
                         self.refreshChildren();
@@ -184,10 +217,10 @@ var app = new Vue({
                     }
                     self.newDir = { name: '' }
                 },
-                function () {
+                onerror_callback: function () {
                     self.logError('请求失败');
                 }
-            )
+            });
         },
         uploadFiles: function (files) {
             var self = this;
@@ -225,20 +258,20 @@ var app = new Vue({
             this.uploadFiles(form.inputUploadDir.files);
         },
         showFileModal: function (item) {
+            this.fileEditor.name = item.name;
             var self = this;
-            self.wetoolFS.getFileContent(
-                self.getPathText(self.pathItems), item.name,
-                function (status, data) {
+            self.wetoolFS.fsGet(self.getFSPath(item.name), false, {
+                onload_callback: function (status, data) {
                     if (status == 200) {
-                        self.fileEditor = data.file;
+                        self.fileEditor.content = data;
                     } else {
                         self.logError(`文件内容获取失败, ${status}, ${data.error}`, autoHideDelay = 5000)
                     }
                 },
-                function () {
+                onerror_callback: function () {
                     self.logError('请求失败');
-                }
-            )
+                },
+            });
         },
         updateFile: function () {
             this.logError('文件修改功能未实现');
@@ -275,6 +308,8 @@ var app = new Vue({
                     if (status == 200) {
                         self.searchResult = data.dirs;
                         self.children = data.dirs;
+                        console.log(`search result`);
+                        console.log(self.children);
                     } else {
                         self.logError(`搜索失败, ${status}, ${data.error}`, autoHideDelay = 5000)
                     }
@@ -284,9 +319,24 @@ var app = new Vue({
                 }
             )
         },
+        showQrcode: function(elemId, text){
+            // chinese is not support for qrcode.js now
+            console.debug(`make code: ${text}`)
+            var qrcode = new QRCode(elemId);
+            qrcode.makeCode(text);
+        },
+        refreshConnectionLink: function(){
+            this.showQrcode('connectionLink2', window.location.href)
+        }
     },
+
     created: function () {
         this.goTo(-1);
+
+        // qrcode.makeImage();
+        // console.log(qrcode)
+        // qrcode.makeCode("hello, world");
+
         // this.changeDirectory('', pushHistory = true);
-    }
+    },
 });

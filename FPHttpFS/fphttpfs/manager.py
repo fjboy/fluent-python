@@ -6,6 +6,7 @@ from fplib.common import log
 from fplib import date
 from fplib import fs
 from fplib.system import Disk
+from fplib.system import OS
 
 FS_CONTROLLER = None
 
@@ -141,18 +142,29 @@ class FSManager:
         file_name = os.path.basename(fo.filename)
 
         if not os.path.exists(save_path):
-            os.makedirs(save_path)
+            try:
+                os.makedirs(save_path)
+            except FileExistsError:
+                pass
         fo.save(os.path.join(save_path, file_name))
 
     def disk_usage(self):
         return Disk.usage(self.home)
 
+    def _parse_path_to_linux(self, dirPath):
+        if OS.is_windows():
+            return '/'.join(dirPath.split('\\'))
+        else:
+            return dirPath
+
     def search(self, partern):
         matched_pathes = []
-        for d, name in fs.find(self.home, partern):
-            path = d[len(self.home):].split('/')
+        for dirPath, name in fs.find(self.home, partern):
+            path = dirPath[len(self.home):].split('/')
             path.append(name)
             path_dict = self.get_path_dict(path)
-            path_dict['pardir'] = path[:-1]
+            path_dict['pardir'] = self._parse_path_to_linux(
+                dirPath[len(self.home):])
             matched_pathes.append(path_dict)
+            LOG.debug('path_dict :%s', path_dict)
         return matched_pathes

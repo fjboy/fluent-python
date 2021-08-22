@@ -14,9 +14,14 @@
     <link rel="stylesheet" href="/static/bootstrap-vue/bootstrap-vue.min.css">
     <script src="/static/bootstrap-vue/bootstrap-vue.min.js"></script>
     <script src="/static/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
+
+    <!-- qrcode -->
+    <script src="/static/qrcode.js"></script>
+
 </head>
 
 <body>
+    <!-- <div id='connectionLink' width='100px' height="100px" style="width:100px; height: 100px" ></div> -->
     <div id='app' class="container-lg">
         <div class="row">
             <div class="col-lg-12 col-sm-12">
@@ -129,15 +134,15 @@
                     </thead>
                     <tbody>
                         <tr v-for="(item, index) in children" v-model="children">
-                            <td v-on:click="clickPath(item)" v-if='item.type=="folder"'>
+                            <td v-if='item.type=="folder"' v-on:click="clickPath(item)">
                                 <b-icon icon="folder-fill" variant="warning"></b-icon> {{item.name}}
-                                <p v-if='showPardir==true'><small class="text-muted">{{item.pardir.join('/')}}</small>
+                                <p v-if='showPardir==true'><small class="text-muted">{{item.pardir}}</small>
                                 </p>
                             </td>
                             <td v-else>
                                 <b-icon icon="file-earmark-fill" variant="info"></b-icon>
-                                <a :href="getDownloadUrl(item)" target="_blank"> {{item.name}}</a>
-                                <p v-if='showPardir==true'><small class="text-muted">{{item.pardir.join('/')}}</small>
+                                <a :href="getFSUrl(item)" target="_blank"> {{item.name}}</a>
+                                <p v-if='showPardir==true'><small class="text-muted">{{item.pardir}}</small>
                                 </p>
                             </td>
                             <td>{{item.size}}</td>
@@ -153,37 +158,36 @@
                                     v-b-modal.modal-rename v-b-tooltip.hover :title="translate('rename')">
                                     <b-icon icon="vr"></b-icon>
                                 </b-button>
-                                <a class="btn btn-sm btn-info" :href="getDownloadUrl(item)" target="_blank">
-                                    <b-icon icon="download"></b-icon>
-                                </a>
-
-                                <b-button class="btn btn-sm btn-info" v-on:click="showQrcode(item)"
-                                    v-if="item.type!='folder'" v-b-modal.modal-filelink v-b-tooltip.hover
-                                    :title="translate('displayDownloadQRCode')">
-                                    <b-icon icon="upc-scan"></b-icon>
-                                </b-button>
+                                
                                 <b-button class="btn btn-sm btn-info" v-if="item.editable==true"
                                     v-on:click="showFileModal(item)" v-b-modal.modal-file v-b-tooltip.hover
                                     :title="translate('view')">
                                     <b-icon icon="eye"></b-icon>
                                 </b-button>
+                                <b-button class="btn btn-sm btn-info" v-on:click="setFileQrcode(item)"
+                                    v-if="item.type!='folder'" v-b-modal.modal-filelink v-b-tooltip.hover
+                                    :title="translate('displayDownloadQRCode')">
+                                    <b-icon icon="upc-scan"></b-icon>
+                                </b-button>
+                                <a class="btn btn-sm btn-info" :href="getFSUrl(item)" target="_blank">
+                                    <b-icon icon="download"></b-icon>
+                                </a>
                             </td>
                         </tr>
                     </tbody>
                 </table>
                 <!-- Modal link -->
                 <b-modal id="modal-link" :title="translate('scanUsePhoneBrower')" header-bg-variant="dark"
-                    header-text-variant="light">
+                    header-text-variant="light" @shown="refreshConnectionLink()">
                     <div class="modal-body middle">
-                        <img src="/qrcode" alt="" class="rounded mx-auto d-block">
-                    </div>
+                        <div id='connectionLink2' style="width: 50%; margin: 0 auto"></div> </div>
                 </b-modal>
                 <!-- Modal qrcode -->
-                <b-modal id="modal-filelink" :title="downloadFile.name">
-                    <img alt="" :src="downloadFile.qrcode" class="rounded mx-auto d-block" width="200px">
+                <b-modal id="modal-filelink" :title="downloadFile.name" @shown="showFileQrcode()">
+                    <div id='fileQrcode' style="width: 50%; margin: 0 auto "></div>
                 </b-modal>
                 <!-- Modal rename -->
-                <b-modal id="modal-rename" size="lg" title="translate('rename')" @ok="renameDir()">
+                <b-modal id="modal-rename" size="lg" :title="translate('rename')" @ok="renameDir()">
                     <div class="mb-3">
                         <label for="exampleFormControlInput1" class="form-label">{{translate('filename')}}</label>
                         <b-form-input class="form-control" :value="renameItem.name" disabled></b-form-input>
@@ -226,7 +230,6 @@
     <script type="text/javascript" src="/static/lang.js"></script>
     <script type="text/javascript" src="/static/client.js"></script>
     <script type="text/javascript" src="/static/app.js"></script>
-
 </body>
 
 </html>

@@ -13,7 +13,7 @@ var DIRECOTRY = {
     fileUploadProgress: { en: 'File upload progress', zh: '文件上传进度' },
 
     scanLink: { en: 'Scan to connect ', zh: '扫一扫连接' },
-    scanUsePhoneBrower: { en: 'Please use the mobile browser to scan', zh: '请使用手机浏览器扫一扫' },
+    scanUsePhoneBrower: { en: 'Please use the mobile browser to scan', zh: '打开手机浏览器扫一扫' },
     search: { en: 'search', zh: '搜索' },
 
     uploadFiles: { en: 'upload files', zh: '上传文件' },
@@ -37,8 +37,8 @@ var DIRECOTRY = {
     back: { en: 'back', zh: '返回' },
     refresh: { en: 'refresh', zh: '刷新' },
 
-    filename: { en: 'roog', zh: '根目录' },
-    newFilename: { en: 'new file name', zh: '新文件名' },
+    filename: { en: 'file name', zh: '文件名' },
+    newFileName: { en: 'new file name', zh: '新文件名' },
     pleaseInputFileName: { en: 'please input file name', zh: '请输入新文件名' },
 
     pleaseInput: { en: 'please input ...', zh: '请输入...' },

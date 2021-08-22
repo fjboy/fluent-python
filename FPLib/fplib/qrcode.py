@@ -1,6 +1,6 @@
 import io
 
-import pyzbar
+from pyzbar import pyzbar
 from PIL import Image
 
 try:
