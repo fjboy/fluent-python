@@ -21,6 +21,7 @@ var app = new Vue({
         searchResult: [],
         showPardir: false,
         currentDirList: [],
+        newDirNameIsInvalid: true
     },
     methods: {
         logDebug: function (msg, autoHideDelay = 1000, title = 'Debug') {
@@ -202,7 +203,11 @@ var app = new Vue({
         createDir: function () {
             var self = this;
             if (self.newDir.name == '') {
-                self.logWarn('目录不能为空')
+                self.logError(translate('dirNameNull'))
+                return;
+            }
+            if (self.newDirNameIsInvalid) {
+                self.logError(translate('invalidChar'))
                 return;
             }
             let newDir = self.getDirPath(self.currentDirList.concat(self.newDir.name));
@@ -326,6 +331,14 @@ var app = new Vue({
         },
         refreshConnectionLink: function(){
             this.showQrcode('connectionLink2', window.location.href)
+        },
+        checkIsDirInvalid: function(){
+            let invalidChar = this.newDir.name.search(/[!@#$%^&*():";'<>?,.~]/i);
+            if(invalidChar >= 0){
+                this.newDirNameIsInvalid = true;
+            }else{
+                this.newDirNameIsInvalid = false;
+            }
         },
         refreshDir: function(){
             var self = this;

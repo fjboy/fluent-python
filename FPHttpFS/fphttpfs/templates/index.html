@@ -76,6 +76,7 @@
                 <label for="inputUploadFile"
                     class="btn btn-sm btn-outline-secondary">{{translate('uploadFiles')}}</label>
                 <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{translate('uploadDir')}}</label>
+                <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{translate('newDir')}}</label>
                 <label>
                     <b-icon icon="hdd-fill" variant="secondary"></b-icon> {{getDiskUsage()}}
                     <b-progress :max="diskUsage.total" variant="secondary" style="height: 4px;">
@@ -177,16 +178,16 @@
                 </table>
                 <!-- Modal link -->
                 <b-modal id="modal-link" :title="translate('scanUsePhoneBrower')" header-bg-variant="dark"
-                    header-text-variant="light" @shown="refreshConnectionLink()">
+                    header-text-variant="light" @shown="refreshConnectionLink()"  hide-footer>
                     <div class="modal-body middle">
                         <div id='connectionLink2' style="width: 50%; margin: 0 auto"></div> </div>
                 </b-modal>
                 <!-- Modal qrcode -->
-                <b-modal id="modal-filelink" :title="downloadFile.name" @shown="showFileQrcode()">
+                <b-modal id="modal-filelink" :title="downloadFile.name" @shown="showFileQrcode()"  hide-footer>
                     <div id='fileQrcode' style="width: 50%; margin: 0 auto "></div>
                 </b-modal>
                 <!-- Modal rename -->
-                <b-modal id="modal-rename" size="lg" :title="translate('rename')" @ok="renameDir()">
+                <b-modal id="modal-rename" :title="translate('rename')" @ok="renameDir()" >
                     <div class="mb-3">
                         <label for="exampleFormControlInput1" class="form-label">{{translate('filename')}}</label>
                         <b-form-input class="form-control" :value="renameItem.name" disabled></b-form-input>
@@ -195,33 +196,34 @@
                         <label for="exampleFormControlTextarea1" class="form-label">{{translate('newFileName')}}</label>
                         <b-form-input class="form-control" v-model="renameItem.newName" required></b-form-input>
                     </div>
+                    <template #modal-footer>
+                        <b-button block variant="primary" v-on:click="renameDir()">{{translate('rename')}}</b-button>
+                    </template>
                 </b-modal>
                 <!-- Modal new Dir -->
-                <b-modal id="modal-newdir" :title="translate('newDir')" @ok="createDir()">
+                <b-modal id="modal-newdir" :title="translate('newDir')">
                     <label for="exampleFormControlInput1"
                         class="form-label">{{translate('pleaseInputFileName')}}</label>
-                    <b-form-input class="form-control" v-model="newDir.name"></b-form-input>
-                    <div class="alert alert-light text-info" role="alert">
+                    <b-form-input class="form-control" v-model="newDir.name" v-on:input="checkIsDirInvalid()"></b-form-input>
+                    <p class="text-info">
                         <b-icon icon='exclamation-circle-fill'></b-icon> {{translate('createDirsTips')}}
-                    </div>
+                    </p>
+                    <template #modal-footer>
+                        <b-button block variant="primary" v-on:click="createDir()">{{translate('createNewDir')}}</b-button>
+                    </template>
                 </b-modal>
                 <!-- Modal file content -->
-                <b-modal id="modal-file" size="lg" :title="fileEditor.name">
+                <b-modal id="modal-file" size="lg" :title="fileEditor.name"  hide-footer>
                     <textarea class="form-control" v-model="fileEditor.content" cols="30" rows="20"></textarea>
                 </b-modal>
                 <!-- Modal file upload -->
-                <b-modal id="modal-upload" size="xl" :title="translate('fileUploadProgress')">
-                    <ul class="list-group">
-                        <li class="list-group-item" v-for="(item, index) in uploadQueue.tasks">
-                            {{item.file}}
-                            <span class="badge badge-primary">{{ ((item.loaded / item.total) * 100).toFixed(2)
-                                }}%</span>
-                            <b-progress :max="item.total" class="mb-3" variant="success" style="height: 4px;">
-                                <b-progress-bar :value="item.loaded">
-                                </b-progress-bar>
-                            </b-progress>
-                        </li>
-                    </ul>
+                <b-modal id="modal-upload" size="xl" :title="translate('fileUploadProgress')" hide-footer>
+                    <b-progress  v-for="(item, index) in uploadQueue.tasks" :max="item.total" variant="info" class="mb-3"  height="20px">
+                        <b-progress-bar :value="item.loaded">
+                            {{item.file}} {{((item.loaded / item.total) * 100).toFixed(2)}}%
+                        </b-progress-bar>
+                    </b-progress>
+
                 </b-modal>
             </div>
         </div>

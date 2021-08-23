@@ -42,8 +42,13 @@ var DIRECOTRY = {
     pleaseInputFileName: { en: 'please input file name', zh: '请输入新文件名' },
 
     pleaseInput: { en: 'please input ...', zh: '请输入...' },
-    createDirsTips: { en: 'Use / to create multi-level directories, such as foo/bar ', zh: '使用 / 创建多层目录，例如 foo/bar' },
+    createNewDir: {en: 'create new dir', zh: '创建新目录'},
+    createDirsTips: { en: 'Use / to create multi-level directories, such as foo/bar, invalid chars: !@#$%^&*():\";\'<>?,.~.',
+                      zh: '使用 / 创建多层目录，例如 foo/bar，非法字符包括： !@#$%^&*():\";\'<>?,.~。' },
     diskUsage: {en: 'disk usage', zh: '磁盘空间'},
+
+    invalidChar: {en: 'invalid char', zh: '非法字符'},
+    dirNameNull: {en: 'directory is null', zh: '目录不能为空'},
 
 };
 var SUPPORT_LANG = ['en', 'zh'];

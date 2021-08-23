@@ -14,7 +14,7 @@ LOG = log.getLogger(__name__)
 FS_CONTROLLER = None
 
 SERVER_NAME = 'FluentHttpFS'
-VERSION = 1.1
+VERSION = '1.1 beta'
 
 DEFAULT_CONTEXT = {
     'name': SERVER_NAME,
