@@ -25,6 +25,8 @@ class FluentHttpFS(httpserver.WsgiServer):
         (r'/index.html', views.IndexView.as_view('index')),
         (r'/action', views.ActionView.as_view('action')),
         (r'/fs<regex("/|/.*"):dir_path>', views.FSView.as_view('fs')),
+        (r'/download<regex("/|/.*"):dir_path>',
+            views.DownloadView.as_view('download')),
     ]
 
     def __init__(self, host=None, port=80, fs_root=None):
@@ -32,7 +34,7 @@ class FluentHttpFS(httpserver.WsgiServer):
                          template_folder=os.path.join(ROUTE, 'templates'),
                          static_folder=os.path.join(ROUTE, 'static'),
                          converters_ext=[('regex', RegexConverter)])
-        self.fs_root = fs_root or './'
+        self.fs_root = fs_root or '.'
         LOG.debug('static_folder=%s, template_path=%s',
                   self.static_folder, self.template_folder)
         views.set_fs_manager(self.fs_root)

@@ -3,6 +3,8 @@ import fnmatch
 import io
 import os
 import zipfile
+import contextlib
+import shutil
 
 from fplib.common import log
 
@@ -55,36 +57,56 @@ def directory_flat(top, set_index=True):
             remove(dir_path, recursive=True)
 
 
-def zip_fils(path, name=None, zip_root=True):
+def zip_files(path, name=None, zip_path=True, zip_root=True, verbose=False):
     """Compress directory use zipfile libriary
+
+    Args:
+        path (string): the path to zip
+        name (string, optional): the name of zip file, if null, use the same
+                                 name of specified path. Defaults to None.
+        zip_path (bool, optional): zip whole path to zip file.
+                                   Defaults to False.
+        zip_root (bool, optional): zip the dirname of path to zip file.
+                                   Defaults to True.
+        verbose (bool, optional): print files when zip files.
+                                  Defaults to False.
+    Raises:
+        FileExistsError: zip path is not exists
+    Returns:
+        string: the name of zip file
+
+    E.g.
+        For directory: [foo/bar/file1, foo/bar/file2]
+
+        zip_files('foo/bar')                 --> [foo/bar/file1, foo/bar/file2]
+        zip_files('foo/bar', zip_path=False) --> [bar/file1, bar/file2]
+        zip_files('foo/bar', zip_path=False,
+                  zip_root=False)           --> [file1, file2]
     """
     if not os.path.exists(path):
-        raise FileExistsError('path %s not exists' % path)
+        raise FileNotFoundError('path %s not exists' % path)
 
     zip_name = name or (os.path.basename(path) + '.zip')
     zip_path_list = []
 
-    def collect(directory):
-        # NOTE(zbw) Add the directory itself, make sure that the directory
-        # is still added to the compressed file when it is a file or empty.
-        zip_path_list.append(directory)
-        if os.path.isfile(directory):
-            return
-        for root, dirs, files in os.walk(directory):
+    if os.path.isfile(path):
+        zip_path_list.append(path)
+    else:
+        for root, dirs, files in os.walk(path):
             for p in files + dirs:
                 zip_path_list.append(os.path.join(root, p))
 
-    if zip_root:
-        collect(path)
-    else:
-        children = os.listdir(path)
-        os.chdir(path)
-        for child in children:
-            collect(child)
-
-    with zipfile.ZipFile(zip_name, 'w') as zfile:
+    with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zfile:
         for f in zip_path_list:
-            zfile.write(f, f, zipfile.ZIP_DEFLATED)
+            if verbose:
+                print(f)
+            if zip_path:
+                arcname = f
+            elif zip_root:
+                arcname = f[len(os.path.dirname(path)):]
+            else:
+                arcname = f if zip_path else f[len(path):]
+            zfile.write(f, arcname=arcname)
     return zip_name
 
 

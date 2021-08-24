@@ -113,7 +113,13 @@ var app = new Vue({
                 return this.wetoolFS.getFsUrl(this.getFSPath(dirItem.name));
             }
         },
-
+        getDownloadUrl: function(dirItem){
+            if (dirItem.pardir){
+                return this.wetoolFS.getDownloadUrl(`${dirItem.pardir}/${dirItem.name}`);
+            }else{
+                return this.wetoolFS.getDownloadUrl(this.getFSPath(dirItem.name));
+            }
+        },
         goTo: function(clickIndex) {
             var self = this;
             self.showPardir = false;
@@ -143,14 +149,6 @@ var app = new Vue({
                 filePath = this.getFSPath(this.downloadFile.name);
             }
             this.showQrcode('fileQrcode', this.wetoolFS.getFSLink(filePath))
-        },
-        getDownloadUrl: function (dirItem) {
-            let urlParams = [];
-            dirItem.pardir.forEach(function(dir) {
-                urlParams.push(`path_list=${dir}`);
-            });
-            urlParams.join('/')
-            return `/fs/${encodeURIComponent(dirItem.name)}`
         },
         deleteDir: function (item) {
             var self = this;

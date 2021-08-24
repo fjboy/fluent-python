@@ -1,9 +1,11 @@
 from __future__ import print_function
 import time
+import os
 
 from fplib.common import cliparser
 from fplib.common import log
 from fplib import fs
+from fputils.base.code import print_error
 
 LOG = log.getLogger(__name__)
 
@@ -32,3 +34,26 @@ class PyTac(cliparser.CliBase):
                         break
         LOG.debug('file is closed: %s', fp.closed)
         LOG.debug('Used Time: %.2f seconds', time.time() - start_time)
+
+
+class PyZip(cliparser.CliBase):
+    NAME = 'zip'
+    ARGUMENTS = [
+        cliparser.Argument('dir', help='the path of dir'),
+        cliparser.Argument('--no-root', action='store_true',
+                           help='zip the child of dir'),
+        cliparser.Argument('--no-path', action='store_true',
+                           help='save path to zip file'),
+        cliparser.Argument('-v', '--verbose', action='store_true',
+                           help='show verbose'),
+    ]
+
+    def __call__(self, args):
+        try:
+            fs.zip_files(args.dir, zip_root=not args.no_root,
+                         zip_path=not args.no_path,
+                         verbose=args.verbose)
+        except FileExistsError:
+            LOG.error('%s is not exists', args.dir)
+        except Exception as e:
+            LOG.error(e)

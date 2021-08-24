@@ -12,7 +12,7 @@ LOG = log.getLogger(__name__)
 
 def main():
     cli_parser = cliparser.SubCliParser('Fluent Python Utils Base')
-    cli_parser.register_clis(fs.PyTac, setpip.SetPip,
+    cli_parser.register_clis(fs.PyTac, fs.PyZip, setpip.SetPip,
                              code.JsonGet, code.Md5Sum,
                              confeditor.ConfigList,
                              code.GeneratePassword)

@@ -64,12 +64,18 @@ class WetoolFS {
             }
         }
         this._safe_path = function(path){return path.slice(0, 1) == '/' ? path : '/' + path}
+        this._getEndpoint = function(){
+            let port = window.location.port != '' ? `/${window.location.port}` : ''
+            return `${window.location.protocol}//${window.location.host}${port}`
+        }
         this.get = function(url, params){this.request('GET', url, params)}
         this.delete = function(url, params){this.request('DELETE', url, params)}
         this.post = function(url, params){this.request('POST', url, params)}
         this.put = function(url, params){this.request('PUT', url, params)}
+        this.getFSLink = function(dirPath){return `${this._getEndpoint()}/fs/${dirPath}`}
 
         this.getFsUrl = function(dirPath){return `/fs${this._safe_path(dirPath)}`}
+        this.getDownloadUrl = function(dirPath){return `/download${this._safe_path(dirPath)}`}
 
         this.fsGet = function(path, showAll=false, params={}){
             // path like: /dir1/dir2
@@ -146,14 +152,6 @@ class WetoolFS {
             xhr.open("GET", '/server', true);
             xhr.send();
         };
-        this._getEndpoint = function(){
-            let port = window.location.port != '' ? `/${window.location.port}` : ''
-            return `${window.location.protocol}//${window.location.host}${port}`
-        }
-        this.getFSLink = function(dirPath){
-            return `${this._getEndpoint()}/fs/${dirPath}`
-        }
-        
     }
 }
 

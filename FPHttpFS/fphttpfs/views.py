@@ -189,3 +189,31 @@ class FSView(views.MethodView):
             return get_json_response({'error': 'new name is none'}, status=400)
         FS_CONTROLLER.rename_dir(req_path, new_name)
         return {'result': 'rename success'}
+
+
+class DownloadView(views.MethodView):
+
+    def get(self, dir_path):
+        req_path = dir_path.split('/')[1:]
+        abs_path = FS_CONTROLLER.get_abs_path(req_path)
+        directory = os.path.dirname(abs_path)
+        try:
+            LOG.debug('download: %s', req_path)
+            if FS_CONTROLLER.is_file(req_path):
+                send_file = os.path.basename(abs_path)
+            else:
+                LOG.debug('download dir : %s', abs_path)
+                zip_name = fs.zip_files(abs_path, zip_path=False)
+                send_file = zip_name
+                directory = '.'
+            #TODO
+            # make a tmp dir to save zip file instead of ./
+            LOG.debug('send %s %s', directory, send_file)
+            return flask.send_from_directory(directory, send_file,
+                                             as_attachment=False)
+        except FileNotFoundError as e:
+            LOG.exception(e)
+            return get_json_response({'error': 'file not found'}, status=404)
+        except Exception as e:
+            LOG.exception(e)
+            return get_json_response({'error': 'Unkown Exception'}, status=500)
