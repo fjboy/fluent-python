@@ -4,16 +4,17 @@ import flask
 
 from flask import views
 from flask import current_app
+from flask.globals import session
 
 from fplib.common import log
 from fplib import fs
-
 from fphttpfs import manager
+import copy
 
 LOG = log.getLogger(__name__)
 FS_CONTROLLER = None
 
-SERVER_NAME = 'FluentHttpFS'
+SERVER_NAME = 'HttpFS'
 VERSION = '1.1 beta'
 
 DEFAULT_CONTEXT = {
@@ -33,6 +34,11 @@ def set_fs_manager(root_path):
         FS_CONTROLLER = manager.FSManager(root_path)
 
 
+def get_resp_context():
+    context = copy.deepcopy(DEFAULT_CONTEXT)
+    context.update({'username': session.get('username', 'guest')})
+    return context
+
 
 class HomeView(views.MethodView):
 
@@ -43,7 +49,7 @@ class HomeView(views.MethodView):
 class IndexView(views.MethodView):
 
     def get(self):
-        return flask.render_template('index.html', **DEFAULT_CONTEXT)
+        return flask.render_template('index.html', **get_resp_context())
 
 
 class ActionView(views.MethodView):
@@ -81,7 +87,7 @@ class ActionView(views.MethodView):
         f = flask.request.files.get('file')
         if not f:
             return get_json_response({'error': 'file is null'})
-        FS_CONTROLLER.save_file(params.get('path_list'), f)
+        FS_CONTROLLER.save(params.get('path_list'), f)
         return {'result': 'file save success'}
 
     def _check_params(self, params):
@@ -98,8 +104,6 @@ class ActionView(views.MethodView):
         """
         matched_pathes = []
         if params.get('partern'):
-            for p in FS_CONTROLLER.search(params.get('partern')):
-                matched_pathes.append(p)
             matched_pathes = FS_CONTROLLER.search(params.get('partern'))
         return {'dirs': matched_pathes}
 
@@ -126,7 +130,7 @@ class FSView(views.MethodView):
         if FS_CONTROLLER.is_file(req_path):
             return self.send_file(req_path)
         try:
-            children = FS_CONTROLLER.get_dirs(req_path, all=all)
+            children = FS_CONTROLLER.ls(req_path, all=all)
         except FileNotFoundError:
             return get_json_response({'error': 'file not found'}, status=404)
         return {
@@ -164,7 +168,7 @@ class FSView(views.MethodView):
     def delete(self, dir_path):
         req_path = dir_path.split('/')[1:]
         force = flask.request.args.get('force', False)
-        FS_CONTROLLER.delete_dir(req_path, force=force)
+        FS_CONTROLLER.rm(req_path, force=force)
         return {'result': 'delete success'}
 
     def post(self, dir_path):
@@ -175,7 +179,7 @@ class FSView(views.MethodView):
         req_path = dir_path.split('/')[:]
         if FS_CONTROLLER.path_exists(req_path):
             raise ValueError('path is already exists: %s' % req_path)
-        FS_CONTROLLER.create_dir(req_path)
+        FS_CONTROLLER.mkdir(req_path)
         return {'result': 'create success'}
 
     def put(self, dir_path):
@@ -187,7 +191,7 @@ class FSView(views.MethodView):
         new_name = data.get('dir', {}).get('new_name')
         if not new_name:
             return get_json_response({'error': 'new name is none'}, status=400)
-        FS_CONTROLLER.rename_dir(req_path, new_name)
+        FS_CONTROLLER.rename(req_path, new_name)
         return {'result': 'rename success'}
 
 
@@ -217,3 +221,44 @@ class DownloadView(views.MethodView):
         except Exception as e:
             LOG.exception(e)
             return get_json_response({'error': 'Unkown Exception'}, status=500)
+
+
+class SearchView(views.MethodView):
+
+    def get(self):
+        return {'search': {'history': FS_CONTROLLER.search_history.all()}}
+
+    def post(self):
+        """
+        params: {'search': {'partern': '*.py'}}
+        """
+        data = json.loads(flask.request.data)
+        partern = data.get('search', {}).get('partern')
+        if not partern:
+            return get_json_response({'error': 'partern is none'}, status=400)
+        matched_pathes = FS_CONTROLLER.find(partern)
+        return {'search': {'dirs': matched_pathes}}
+
+
+class AuthView(views.MethodView):
+
+    def _auth(self, auth_info):
+        username = auth_info.get('username')
+        password = auth_info.get('password')
+        if username == 'admin' and password == 'admin123':
+            session['username'] = username
+            return True
+        return False
+
+    def post(self):
+        LOG.debug('auth xxxxxxxx:')
+        data = flask.request.data
+        if not data:
+            msg = 'login info not found'
+            return get_json_response({'error': msg}, status=400)
+        auth = json.loads(data).get('auth', {})
+        LOG.debug('auth with: %s', auth)
+        if self._auth(auth):
+            return get_json_response({}, status=200)
+        else:
+            return get_json_response({'error': 'auth failed'}, status=401)

@@ -49,7 +49,13 @@ var DIRECOTRY = {
 
     invalidChar: {en: 'invalid char', zh: '非法字符'},
     dirNameNull: {en: 'directory is null', zh: '目录不能为空'},
-
+    makeSureDelete: {en: 'Are you sure delete this file/directory?', zh: '确定要删除该文件/目录？'},
+    accountSignIn: {en: 'Sign In With Account', zh: '账号登录'},
+    signIn: {en: 'Sign In', zh: '登录'},
+    username: {en: 'username', zh: '用户名'},
+    password: {en: 'password', zh: '密码'},
+    pleaseInputUsername: { en: 'please input username', zh: '请输入用户名' },
+    pleaseInputPassword: { en: 'please input password', zh: '请输入密码' },
 };
 var SUPPORT_LANG = ['en', 'zh'];
 

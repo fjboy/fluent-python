@@ -5,8 +5,10 @@ import mimetypes
 from fplib.common import log
 from fplib import date
 from fplib import fs
+from fplib import structure
 from fplib.system import Disk
 from fplib.system import OS
+
 
 FS_CONTROLLER = None
 
@@ -16,8 +18,9 @@ LOG = log.getLogger(__name__)
 
 class FSManager:
 
-    def __init__(self, home) -> None:
+    def __init__(self, home):
         self.home = home
+        self.search_history = structure.LastNList(10)
 
     def get_abs_path(self, path):
         if isinstance(path, str):
@@ -26,7 +29,6 @@ class FSManager:
             return os.path.join(self.home, *path)
 
     def path_exists(self, path):
-        LOG.debug('abs path is: %s', self.get_abs_path(path))
         return os.path.exists(self.get_abs_path(path))
 
     def get_path_dict(self, path):
@@ -47,18 +49,18 @@ class FSManager:
                 return True
         return False
 
-    def create_dir(self, path):
+    def mkdir(self, path):
         abs_path = self.get_abs_path(path)
         if self.path_exists(abs_path):
             return FileExistsError(path)
         os.makedirs(abs_path)
 
-    def rename_dir(self, path, new_name):
+    def rename(self, path, new_name):
         abs_path = self.get_abs_path(path)
         new_path = os.path.join(os.path.dirname(abs_path), new_name)
         os.rename(abs_path, new_path)
 
-    def delete_dir(self, path, force=False):
+    def rm(self, path, force=False):
         abs_path = self.get_abs_path(path)
         if not self.path_exists(path):
             raise FileNotFoundError('path not exists: %s' % abs_path)
@@ -69,12 +71,15 @@ class FSManager:
         return os.listdir(self.get_abs_path(path))
 
     def stat(self, path):
-        return os.stat(self.get_abs_path(path))
+        if isinstance(path, str):
+            return os.stat()
+        else:
+            return os.stat(self.get_abs_path(path))
 
     def access(self, path, *args):
         return os.access(self.get_abs_path(path), *args)
 
-    def get_dirs(self, path, all=False):
+    def ls(self, path, all=False):
         dirs = []
         for child in self.listdir(path):
             child_path = path[:]
@@ -133,7 +138,7 @@ class FSManager:
         abs_path = self.get_abs_path(path)
         return os.path.isfile(abs_path)
 
-    def save_file(self, path, fo):
+    def save(self, path, fo):
         if not fo:
             raise ValueError('file is null')
         save_path_list = path[:]
@@ -157,14 +162,24 @@ class FSManager:
         else:
             return dirPath
 
-    def search(self, partern):
+    def _split_path(self, path_string):
+        """Parse string path to list
+        """
+        if OS.is_windows():
+            return path_string.split('\\')
+        return path_string.split('/')
+
+    def find(self, partern):
+        """Find files by partern name
+        E.g. *.py, setup.py
+        """
         matched_pathes = []
         for dirPath, name in fs.find(self.home, partern):
-            path = dirPath[len(self.home):].split('/')
-            path.append(name)
+            path = self._split_path(os.path.join(dirPath, name))
             path_dict = self.get_path_dict(path)
             path_dict['pardir'] = self._parse_path_to_linux(
                 dirPath[len(self.home):])
             matched_pathes.append(path_dict)
-            LOG.debug('path_dict :%s', path_dict)
+        if partern not in self.search_history.all():
+            self.search_history.append(partern)
         return matched_pathes

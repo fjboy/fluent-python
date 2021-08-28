@@ -35,7 +35,7 @@ class WsgiServer:
     RULES = [(r'/', IndexView.as_view('index')), ]
 
     def __init__(self, name, host=None, port=80, template_folder=None,
-                 static_folder=None):
+                 static_folder=None, converters_ext=None, secret_key=None):
         self.host = host or net.get_internal_ip()
         self.port = port
         self.template_folder = template_folder
@@ -43,15 +43,19 @@ class WsgiServer:
         self.app = flask.Flask(name,
                                template_folder=self.template_folder,
                                static_folder=self.static_folder)
+        if secret_key:
+            self.app.config['SECRET_KEY'] = secret_key
+        if converters_ext:
+            for name, cls in converters_ext:
+                self.app.url_map.converters[name] = cls
+
         self._register_rules()
 
         self.app.jinja_env.variable_start_string = '[['
         self.app.jinja_env.variable_end_string = ']]'
         self.app.config['SERVER_NAME'] = '{}:{}'.format(self.host, self.port)
 
-        @self.app.before_request
-        def register_before_request():
-            self.before_request()
+        self.app.before_request(self.before_request)
 
     def before_request(self):
         """Do someting here before reqeust"""

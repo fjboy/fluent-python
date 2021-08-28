@@ -48,8 +48,10 @@
                             </b-a>
                             <b-nav-form right>
                                 <b-form-input size="sm" class="mr-sm-2" :placeholder="translate('pleaseInput')"
-                                    v-model="searchPartern">
-                                </b-form-input>
+                                    v-model="searchPartern" list='searchHistory' @click='refreshSearchHistory'></b-form-input>
+                                <datalist id="searchHistory">
+                                    <option v-for="item in searchHistory">{{item}}</option>
+                                </datalist>
                                 <b-button size="sm" class="my-2 my-sm-0" type="button" v-on:click="search()">
                                     {{translate('search')}}
                                 </b-button>
@@ -63,10 +65,9 @@
                             </b-nav-item-dropdown>
 
                             <b-nav-item-dropdown right>
-                                <!-- Using 'button-content' slot -->
-                                <template #button-content><em>{{translate('user')}}</em></template>
-                                <b-dropdown-item href="#">{{translate('setting')}}</b-dropdown-item>
-                                <b-dropdown-item href="#">{{translate('signOut')}}</b-dropdown-item>
+                                <template #button-content><em> <b-icon icon="person-fill"></b-icon> [[ username ]]</em></template>
+                                <b-dropdown-item href="#"><b-icon icon="tools"></b-icon> {{translate('setting')}}</b-dropdown-item>
+                                <b-dropdown-item href="#"><b-icon icon="power"></b-icon> {{translate('signOut')}}</b-dropdown-item>
                             </b-nav-item-dropdown>
                         </b-navbar-nav>
                     </b-collapse>
@@ -150,8 +151,7 @@
                                 <span style="font-size: small;">{{item.modify_time}}</span>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-danger" v-on:click="deleteDir(item)" v-b-tooltip.hover
-                                    :title="translate('delete')">
+                                <button class="btn btn-sm btn-danger" v-on:click="makeSureDelete(item)" v-b-tooltip.hover :title="translate('delete')">
                                     <b-icon icon="trash"></b-icon>
                                 </button>
                                 <b-button class="btn btn-sm btn-warning" v-on:click="showRenameModal(item)"
@@ -202,12 +202,8 @@
                 </b-modal>
                 <!-- Modal new Dir -->
                 <b-modal id="modal-newdir" :title="translate('newDir')">
-                    <label for="exampleFormControlInput1"
-                        class="form-label">{{translate('pleaseInputFileName')}}</label>
-                    <b-form-input class="form-control" v-model="newDir.name" v-on:input="checkIsDirInvalid()"></b-form-input>
-                    <p class="text-info">
-                        <b-icon icon='exclamation-circle-fill'></b-icon> {{translate('createDirsTips')}}
-                    </p>
+                    <b-form-input :state="newDir.validate" v-model="newDir.name" :placeholder="translate('pleaseInputFileName')" v-on:input="checkIsDirInvalid()"></b-form-input>
+                    <b-icon variant='info' icon='exclamation-circle-fill'></b-icon> {{translate('createDirsTips')}}
                     <template #modal-footer>
                         <b-button block variant="primary" v-on:click="createDir()">{{translate('createNewDir')}}</b-button>
                     </template>
@@ -216,20 +212,24 @@
                 <b-modal id="modal-file" size="lg" :title="fileEditor.name"  hide-footer>
                     <textarea class="form-control" v-model="fileEditor.content" cols="30" rows="20"></textarea>
                 </b-modal>
-                <!-- Modal file upload -->
+                <!-- Modal file upload progress -->
                 <b-modal id="modal-upload" size="xl" :title="translate('fileUploadProgress')" hide-footer>
                     <b-progress  v-for="(item, index) in uploadQueue.tasks" :max="item.total" variant="info" class="mb-3"  height="20px">
                         <b-progress-bar :value="item.loaded">
                             {{item.file}} {{((item.loaded / item.total) * 100).toFixed(2)}}%
                         </b-progress-bar>
                     </b-progress>
-
+                </b-modal>
+                <!-- Modal delete dir warning -->
+                <b-modal ref="modal-delete" :title="translate('areYouSureDelete')" @ok='deleteDir'>
+                    {{translate("deletePath")}}
                 </b-modal>
             </div>
         </div>
     </div>
     <script type="text/javascript" src="/static/lang.js"></script>
-    <script type="text/javascript" src="/static/client.js"></script>
+    <script type="text/javascript" src="/static/lib.js"></script>
+    <script type="text/javascript" src="/static/httpfsclient.js"></script>
     <script type="text/javascript" src="/static/app.js"></script>
 </body>
 
