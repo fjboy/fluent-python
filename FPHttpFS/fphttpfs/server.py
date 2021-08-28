@@ -33,7 +33,10 @@ class FluentHttpFS(httpserver.WsgiServer):
         (r'/search', views.SearchView.as_view('search')),
     ]
 
-    def __init__(self, host=None, port=80, fs_root=None):
+    def __init__(self, host=None, port=80, fs_root=None, password=None):
+        if password:
+            LOG.info('auth request before request')
+            self.before_request = self.auth_all_request
         super().__init__('FluentHttpFS', host=host, port=port,
                          template_folder=os.path.join(ROUTE, 'templates'),
                          static_folder=os.path.join(ROUTE, 'static'),
@@ -42,12 +45,15 @@ class FluentHttpFS(httpserver.WsgiServer):
         LOG.debug('static_folder=%s, template_path=%s',
                   self.static_folder, self.template_folder)
         self.fs_root = fs_root or '.'
+        self.app.config['admin_password'] = password
         views.set_fs_manager(self.fs_root)
+        views.set_auth_manager(password)
 
-    def before_request(self):
+    def auth_all_request(self):
         if flask.request.path.startswith('/static') or \
            flask.request.path.startswith('/login') or \
            flask.request.path.startswith('/auth'):
             return
+        LOG.debug('session username is %s', session.get('username'))
         if not session.get('username'):
             return flask.render_template('login.html')

@@ -16,7 +16,7 @@ FS_CONTROLLER = None
 LOG = log.getLogger(__name__)
 
 
-class FSManager:
+class FSManager(object):
 
     def __init__(self, home):
         self.home = home

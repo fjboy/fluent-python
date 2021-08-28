@@ -9,10 +9,12 @@ from flask.globals import session
 from fplib.common import log
 from fplib import fs
 from fphttpfs import manager
+from fphttpfs import auth
 import copy
 
 LOG = log.getLogger(__name__)
 FS_CONTROLLER = None
+AUTH_CONTROLLER = None
 
 SERVER_NAME = 'HttpFS'
 VERSION = '1.1 beta'
@@ -32,6 +34,12 @@ def set_fs_manager(root_path):
     global FS_CONTROLLER
     if not FS_CONTROLLER:
         FS_CONTROLLER = manager.FSManager(root_path)
+
+
+def set_auth_manager(password):
+    global AUTH_CONTROLLER
+    if not AUTH_CONTROLLER:
+        AUTH_CONTROLLER = auth.AuthManager(password)
 
 
 def get_resp_context():
@@ -242,23 +250,16 @@ class SearchView(views.MethodView):
 
 class AuthView(views.MethodView):
 
-    def _auth(self, auth_info):
-        username = auth_info.get('username')
-        password = auth_info.get('password')
-        if username == 'admin' and password == 'admin123':
-            session['username'] = username
-            return True
-        return False
-
     def post(self):
-        LOG.debug('auth xxxxxxxx:')
         data = flask.request.data
         if not data:
-            msg = 'login info not found'
-            return get_json_response({'error': msg}, status=400)
+            return get_json_response({'error': 'auth info not found'},
+                                     status=400)
         auth = json.loads(data).get('auth', {})
         LOG.debug('auth with: %s', auth)
-        if self._auth(auth):
+        if AUTH_CONTROLLER.is_valid(auth.get('username'),
+                                    auth.get('password')):
+            session['username'] = auth.get('username')
             return get_json_response({}, status=200)
         else:
             return get_json_response({'error': 'auth failed'}, status=401)

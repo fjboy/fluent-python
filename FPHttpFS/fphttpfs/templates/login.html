@@ -1,0 +1,86 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="shortcut icon" href="/favicon.ico">
+        <script type="javascript"></script>
+
+        <!-- Vue -->
+        <script type="text/javascript" type="text/javascript" src="/static/vue/vue.min.js"></script>
+        <script type="text/javascript" type="text/javascript" src="/static/vue/vue-i18n.js"></script>
+        <!-- bootstrap css -->
+        <link rel="stylesheet" href="/static/bootstrap-4.6.0/css/bootstrap.min.css">
+        <!-- bootstrap-vue  -->
+        <link rel="stylesheet" href="/static/bootstrap-vue/bootstrap-vue.min.css">
+        <script type="text/javascript" src="/static/bootstrap-vue/bootstrap-vue.min.js"></script>
+        <script type="text/javascript" src="/static/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
+
+        <script type="text/javascript" src="/static/i18n.js"></script>
+        <script type="text/javascript" src="/static/lib.js"></script>
+        <script type="text/javascript" src="/static/httpfsclient.js"></script>
+
+    </head>
+    <body>
+        <div id='app' class="container">
+            <div class="row justify-content-md-center" >
+                <div class="col-lg-5 col-md-10 col-sm-12 " style="text-align: center;">
+                    <b-card bg-variant="light" :header="i18n.t('accountSignIn')" class="text-center" >
+                        <div class="form-group">
+                            <b-form-input :placeholder="i18n.t('pleaseInputUsername')" v-model="auth.username" ></b-form-input>
+                        </div>
+                        <div class="form-group">
+                            <b-form-input :placeholder="i18n.t('pleaseInputPassword')" v-model="auth.password" type="password"></b-form-input>
+                        </div>
+                        <div class="text-right">
+                            <b-link href="#" v-on:click="setDisplayLang('en')">{{i18n.t('en')}}</b-link>/
+                            <b-link href="#" v-on:click="setDisplayLang('zh')">{{i18n.t('zh')}}</b-link>
+                        </div>
+                        
+                        <template #footer>
+                            <b-button block variant="primary" v-on:click="login">{{i18n.t('signIn')}}</b-button>
+                          </template>
+                    </b-card>
+                </div>
+            </div>
+        </div>
+    </body>
+
+    <script>
+        var app = new Vue({
+            el: '#app',
+            data: {
+                log: null,
+                auth: {username: '', password: ''},
+                fsclient: new HttpFSClient()
+            },
+            methods: {
+                login: function(){
+                    let self = this;
+                    if (this.auth.username == '' || this.auth.password == ''){
+                        self.log.error(i18n.t('invalidAuthInfo'))
+                        return;
+                    }
+                    this.fsclient.auth(self.auth, {
+                        onload_callback: function(status, data){
+                            if (status != 200){
+                                self.log.error(i18n.t('authFailed'));
+                                return;
+                            }
+                            window.location.reload();
+                        },
+                        onerror_callback: function(status, data){
+                            self.log.error(i18n.t('loginFailed'))
+                        }
+                    });
+                },
+                changeLanguage: function(language,){
+                    setDisplayLang(language);
+                }
+            },
+            created: function(){
+                setDisplayLang(getUserSettedLang());
+                this.log = new LoggerWithBVToast(this.$bvToast, debug=false)
+            }
+        });
+    </script>
+</html>

@@ -3,7 +3,7 @@ var app = new Vue({
     el: '#app',
     data: {
         children: [],
-        downloadFile: {name: '', qrcode: '' },
+        downloadFile: { name: '', qrcode: '' },
         showAll: false,
         fsClient: new HttpFSClient(),
         renameItem: { name: '', newName: '' },
@@ -12,7 +12,7 @@ var app = new Vue({
         uploadQueue: { completed: 0, tasks: [] },
         debug: false,
         pathItems: [],
-        diskUsage: {used: 0, total: 100},
+        diskUsage: { used: 0, total: 100 },
         searchPartern: '',
         searchResult: [],
         showPardir: false,
@@ -24,14 +24,6 @@ var app = new Vue({
         refreshChildren: function () {
             this.log.debug('更新目录');
             this.goTo(this.pathItems.length - 1);
-        },
-        getAbsPath: function (child) {
-            if (absPath == '/') {
-                absPath += child.name;
-            } else {
-                absPath += '/' + child.name;
-            }
-            return absPath;
         },
         clickPath: function (child) {
             if (child.type != "folder") {
@@ -45,7 +37,7 @@ var app = new Vue({
                 function (status, data) {
                     if (status == 200) {
                         self.currentDirList.push(child.name);
-                        self.pathItems.push({text: child.name, href: '#' })
+                        self.pathItems.push({ text: child.name, href: '#' })
                         self.children = data.dir.children;
                         self.diskUsage = data.dir.disk_usage;
                     } else {
@@ -54,38 +46,25 @@ var app = new Vue({
                 }
             );
         },
-        getPathText: function(pathItems){
+        getPathText: function (pathItems) {
             let pathText = [];
-            pathItems.forEach(function(item) {
-                pathText.push(item.text);
-            });
+            pathItems.forEach(function (item) { pathText.push(item.text) });
             return pathText;
         },
-        getDirPath: function(dirItems){
-            return dirItems.join('/')
+        getDirPath: function (dirItems) {return dirItems.join('/')},
+        getCurrentPath: function () { return this.getDirPath(this.pathItems) },
+        getFSPath: function (dirName) { return this.getDirPath(this.currentDirList.concat(dirName)) },
+        getFSUrl: function (dirItem) {
+            this.fsClient.getFsUrl(
+                dirItem.pardir ? `${dirItem.pardir}/${dirItem.name}` : this.getFSPath(dirItem.name)
+            )
         },
-        getCurrentPath: function(){
-            return this.getDirPath(this.pathItems);
+        getDownloadUrl: function (dirItem) {
+            return this.fsClient.getDownloadUrl(
+                dirItem.pardir ? `${dirItem.pardir}/${dirItem.name}` : this.getFSPath(dirItem.name)
+            );
         },
-        getFSPath: function(dirName){
-            let currentDir = this.currentDirList.concat(dirName);
-            return this.getDirPath(currentDir)
-        },
-        getFSUrl: function(dirItem){
-            if (dirItem.pardir){
-                return this.fsClient.getFsUrl(`${dirItem.pardir}/${dirItem.name}`);
-            }else{
-                return this.fsClient.getFsUrl(this.getFSPath(dirItem.name));
-            }
-        },
-        getDownloadUrl: function(dirItem){
-            if (dirItem.pardir){
-                return this.fsClient.getDownloadUrl(`${dirItem.pardir}/${dirItem.name}`);
-            }else{
-                return this.fsClient.getDownloadUrl(this.getFSPath(dirItem.name));
-            }
-        },
-        goTo: function(clickIndex) {
+        goTo: function (clickIndex) {
             var self = this;
             self.showPardir = false;
             let pathItems = self.getPathText(getItemsBefore(self.pathItems, clickIndex));
@@ -103,26 +82,26 @@ var app = new Vue({
                 }
             );
         },
-        setFileQrcode: function(dirItem){
+        setFileQrcode: function (dirItem) {
             this.downloadFile = dirItem;
         },
         showFileQrcode: function () {
             let filePath = null;
-            if (this.downloadFile.pardir){
+            if (this.downloadFile.pardir) {
                 filePath = `${this.downloadFile.pardir}/${this.downloadFile.name}`;
-            }else{
+            } else {
                 filePath = this.getFSPath(this.downloadFile.name);
             }
             this.showQrcode('fileQrcode', this.fsClient.getFSLink(filePath))
         },
-        makeSureDelete: function(item){
+        makeSureDelete: function (item) {
             var self = this;
             this.$bvModal.msgBoxConfirm(item.name, {
-                title: translate('makeSureDelete'),
+                title: i18n.t('makeSureDelete'),
                 okVariant: 'danger',
             }).then(value => {
                 self.log.debug(`make sure delete? ${value}`)
-                if(value == true){
+                if (value == true) {
                     self.deleteDir(item);
                     self.refreshChildren();
                 }
@@ -176,11 +155,11 @@ var app = new Vue({
         createDir: function () {
             var self = this;
             if (this.newDir.name == '') {
-                this.log.error(translate('dirNameNull'))
+                this.log.error(i18n.t('dirNameNull'))
                 return;
             }
-            if (! this.newDir.validate) {
-                this.log.error(translate('invalidChar'))
+            if (!this.newDir.validate) {
+                this.log.error(i18n.t('invalidChar'))
                 return;
             }
             var self = this;
@@ -191,7 +170,7 @@ var app = new Vue({
                         self.log.info('目录创建成功');
                         self.refreshChildren();
                     } else {
-                        self.log.error(`目录创建失败, ${status}, ${data.error}`, autoHideDelay=5000)
+                        self.log.error(`目录创建失败, ${status}, ${data.error}`, autoHideDelay = 5000)
                     }
                     self.newDir = { name: '' }
                 },
@@ -214,7 +193,7 @@ var app = new Vue({
                     function (status, data) {
                         if (status != 200) {
                             self.log.error(`文件上传失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                        }else{
+                        } else {
                             self.refreshChildren()
                             self.uploadQueue.completed += 1;
                         }
@@ -254,92 +233,92 @@ var app = new Vue({
         updateFile: function () {
             this.log.error('文件修改功能未实现');
         },
-        getDiskUsage: function(){
+        getDiskUsage: function () {
             let ONE_KB = 1024;
             let ONE_MB = ONE_KB * 1024;
             let ONE_GB = ONE_MB * 1024;
             let displayUsed = this.diskUsage.used;
             let displayTotal = this.diskUsage.total;
             let unit = 'B'
-            if (this.diskUsage.total >= ONE_GB){
+            if (this.diskUsage.total >= ONE_GB) {
                 displayUsed = this.diskUsage.used / ONE_GB;
                 displayTotal = this.diskUsage.total / ONE_GB;
                 unit = 'GB';
-            } else if (this.diskUsage.total >= ONE_MB){
+            } else if (this.diskUsage.total >= ONE_MB) {
                 displayUsed = this.diskUsage.used / ONE_MB;
                 displayTotal = this.diskUsage.total / ONE_MB;
                 unit = 'MB';
-            } else if (this.diskUsage.total >= ONE_KB){
+            } else if (this.diskUsage.total >= ONE_KB) {
                 displayUsed = this.diskUsage.used / ONE_KB;
                 displayTotal = this.diskUsage.total / ONE_KB;
                 unit = 'KB';
             }
             return `${displayUsed.toFixed(2)}${unit}/${displayTotal.toFixed(2)}${unit}`;
         },
-        refreshSearchHistory: function(){
+        refreshSearchHistory: function () {
             var self = this
             this.fsClient.getSearchHistory({
-                onload_callback: function(status, data){
-                    if (status != 200){
+                onload_callback: function (status, data) {
+                    if (status != 200) {
                         self.log.error('get search history failed');
                     }
                     self.searchHistory = data.search.history;
                 }
             });
         },
-        search: function(){
-            if(this.searchPartern == ''){return;}
+        search: function () {
+            if (this.searchPartern == '') { return; }
             var self = this;
             self.showPardir = true;
             self.searchResult = [];
             this.fsClient.searchPost(
                 this.searchPartern, {
-                    onload_callback: function (status, data) {
-                        if (status == 200) {
-                            self.children = data.search.dirs;
-                        } else {
-                            self.log.error(`搜索失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                        }
-                    },
-                    onerror_callback: function () { self.log.error('请求失败') }
-                }
+                onload_callback: function (status, data) {
+                    if (status == 200) {
+                        self.children = data.search.dirs;
+                    } else {
+                        self.log.error(`搜索失败, ${status}, ${data.error}`, autoHideDelay = 5000)
+                    }
+                },
+                onerror_callback: function () { self.log.error('请求失败') }
+            }
             )
         },
-        showQrcode: function(elemId, text){
+        showQrcode: function (elemId, text) {
             // chinese is not support for qrcode.js now
             console.debug(`make code: ${text}`)
             var qrcode = new QRCode(elemId);
             qrcode.makeCode(text);
         },
-        refreshConnectionLink: function(){
+        refreshConnectionLink: function () {
             this.showQrcode('connectionLink2', window.location.href)
         },
-        checkIsDirInvalid: function(){
+        checkIsDirInvalid: function () {
             let invalidChar = this.newDir.name.search(/[!@#$%^&*():";'<>?,.~]/i);
-            if(invalidChar >= 0){
+            if (invalidChar >= 0) {
                 this.newDir.validate = false;
-            }else{
+            } else {
                 this.newDir.validate = true;
             }
         },
-        refreshDir: function(){
+        refreshDir: function () {
             var self = this;
             this.fsClient.fsGet(
                 this.currentDirList.join('/'), self.showAll, {
-                    onload_callback: function (status, data) {
-                        if (status == 200) {
-                            self.children = data.dir.children;
-                            self.diskUsage = data.dir.disk_usage;
-                        } else {
-                            self.log.error(`请求失败，${status}, ${data.error}`);
-                        }
+                onload_callback: function (status, data) {
+                    if (status == 200) {
+                        self.children = data.dir.children;
+                        self.diskUsage = data.dir.disk_usage;
+                    } else {
+                        self.log.error(`请求失败，${status}, ${data.error}`);
                     }
                 }
-            );
+            });
         }
     },
     created: function () {
-        this.log = new LoggerWithBVToast(this.$bvToast, debug=false)
+        setDisplayLang(getUserSettedLang());
+        this.log = new LoggerWithBVToast(this.$bvToast, debug = false)
         this.log.debug('vue app created');
         this.goTo(-1);
     },

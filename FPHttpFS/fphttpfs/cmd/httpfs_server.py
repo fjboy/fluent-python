@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+import mimetypes
 
 from fplib.common import log
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.pardir)))     # noqa
@@ -18,10 +19,18 @@ def main():
                         help="the port of server, default 80")
     parser.add_argument('--develop', action='store_true',
                         help="run server as development mode")
+    parser.add_argument('--password',
+                        help="the password for admin")
     args = parser.parse_args()
     if args.debug:
         log.set_default(level=logging.DEBUG)
-    fs_server = server.FluentHttpFS(fs_root=args.root, port=args.port)
+
+    # NOTE(zhengbenwu) For windows host, MIME type of js file be
+    # 'text/plain', so add this type before start http server.
+    mimetypes.add_type('application/javascript', '.js')
+
+    fs_server = server.FluentHttpFS(fs_root=args.root, port=args.port,
+                                    password=args.password)
     fs_server.start(develoment=args.develop, debug=args.debug)
 
 

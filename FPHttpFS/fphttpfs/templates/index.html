@@ -8,16 +8,20 @@
     <link rel="shortcut icon" href="/favicon.ico">
 
     <!-- Vue -->
-    <script src="/static/vue/vue.min.js"></script>
+    <script type="text/javascript" src="/static/vue/vue.min.js"></script>
+    <script type="text/javascript" src="/static/vue/vue-i18n.js"></script>
     <!-- bootstrap css -->
     <link rel="stylesheet" href="/static/bootstrap-4.6.0/css/bootstrap.min.css">
     <!-- bootstrap-vue  -->
     <link rel="stylesheet" href="/static/bootstrap-vue/bootstrap-vue.min.css">
-    <script src="/static/bootstrap-vue/bootstrap-vue.min.js"></script>
-    <script src="/static/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
-
+    <script type="application/javascript" src="/static/bootstrap-vue/bootstrap-vue.min.js"></script>
+    <script type="application/javascript" src="/static/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
     <!-- qrcode -->
     <script src="/static/qrcode.js"></script>
+
+    <script type="text/javascript" src="/static/i18n.js"></script>
+    <script type="text/javascript" src="/static/lib.js"></script>
+    <script type="text/javascript" src="/static/httpfsclient.js"></script>
 
 </head>
 
@@ -34,7 +38,7 @@
                     <b-collapse id="nav-collapse" is-nav>
                         <b-navbar-nav>
                             <b-nav-item href="#">
-                                <b-a href="#" v-b-modal.modal-link>{{translate('scanLink')}}</b-a>
+                                <b-a href="#" v-b-modal.modal-link>{{i18n.t('scanLink')}}</b-a>
                             </b-nav-item>
                         </b-navbar-nav>
 
@@ -47,27 +51,27 @@
                                 </b-badge>
                             </b-a>
                             <b-nav-form right>
-                                <b-form-input size="sm" class="mr-sm-2" :placeholder="translate('pleaseInput')"
+                                <b-form-input size="sm" class="mr-sm-2" :placeholder="i18n.t('pleaseInput')"
                                     v-model="searchPartern" list='searchHistory' @click='refreshSearchHistory'></b-form-input>
                                 <datalist id="searchHistory">
                                     <option v-for="item in searchHistory">{{item}}</option>
                                 </datalist>
                                 <b-button size="sm" class="my-2 my-sm-0" type="button" v-on:click="search()">
-                                    {{translate('search')}}
+                                    {{i18n.t('search')}}
                                 </b-button>
                             </b-nav-form>
 
-                            <b-nav-item-dropdown :text="translate('lang')" right>
-                                <b-dropdown-item href="#" v-on:click="setDisplayLang('en'); location.reload();">
-                                    {{translate('en')}}</b-dropdown-item>
-                                <b-dropdown-item href="#" v-on:click="setDisplayLang('zh'); location.reload();">
-                                    {{translate('zh')}}</b-dropdown-item>
+                            <b-nav-item-dropdown :text="i18n.t('lang')" right>
+                                <b-dropdown-item href="#" v-on:click="setDisplayLang('en')">
+                                    {{i18n.t('en')}}</b-dropdown-item>
+                                <b-dropdown-item href="#" v-on:click="setDisplayLang('zh')">
+                                    {{i18n.t('zh')}}</b-dropdown-item>
                             </b-nav-item-dropdown>
 
                             <b-nav-item-dropdown right>
                                 <template #button-content><em> <b-icon icon="person-fill"></b-icon> [[ username ]]</em></template>
-                                <b-dropdown-item href="#"><b-icon icon="tools"></b-icon> {{translate('setting')}}</b-dropdown-item>
-                                <b-dropdown-item href="#"><b-icon icon="power"></b-icon> {{translate('signOut')}}</b-dropdown-item>
+                                <b-dropdown-item href="#"><b-icon icon="tools"></b-icon> {{i18n.t('setting')}}</b-dropdown-item>
+                                <b-dropdown-item href="#"><b-icon icon="power"></b-icon> {{i18n.t('signOut')}}</b-dropdown-item>
                             </b-nav-item-dropdown>
                         </b-navbar-nav>
                     </b-collapse>
@@ -75,9 +79,9 @@
             </div>
             <div class="col-lg-9 col-sm-9" style="margin-top: 10px;">
                 <label for="inputUploadFile"
-                    class="btn btn-sm btn-outline-secondary">{{translate('uploadFiles')}}</label>
-                <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{translate('uploadDir')}}</label>
-                <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{translate('newDir')}}</label>
+                    class="btn btn-sm btn-outline-secondary">{{i18n.t('uploadFiles')}}</label>
+                <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{i18n.t('uploadDir')}}</label>
+                <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{i18n.t('newDir')}}</label>
                 <label>
                     <b-icon icon="hdd-fill" variant="secondary"></b-icon> {{getDiskUsage()}}
                     <b-progress :max="diskUsage.total" variant="secondary" style="height: 4px;">
@@ -99,7 +103,7 @@
                 <div class="custom-control custom-switch">
                     <input class="custom-control-input" type="checkbox" v-model="showAll" id="showAll"
                         v-on:click="toggleShowAll()">
-                    <label class="custom-control-label" for="showAll">{{translate('displayAll')}}</label>
+                    <label class="custom-control-label" for="showAll">{{i18n.t('displayAll')}}</label>
                 </div>
             </div>
             <div class="col-lg-1 col-sm-3" style="margin-top: 10px;">
@@ -126,11 +130,10 @@
                 <table class="table table-hover table-sm " style="width: 100%;">
                     <thead class="table-light">
                         <tr>
-                            <th>{{translate('file')}} <b-icon icon="sort-alpha-down"></b-icon>
-                            </th>
-                            <th>{{translate('size')}} </th>
-                            <th>{{translate('modifyTime')}}</th>
-                            <th>{{translate('operation')}}</th>
+                            <th>{{i18n.t('file')}} <b-icon icon="sort-alpha-down"></b-icon></th>
+                            <th>{{i18n.t('size')}} </th>
+                            <th>{{i18n.t('modifyTime')}}</th>
+                            <th>{{i18n.t('operation')}}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -141,7 +144,7 @@
                                 </p>
                             </td>
                             <td v-else>
-                                <b-icon icon="file-earmark-fill" variant="info"></b-icon>
+                                <b-icon icon="file-earmark-fill"></b-icon>
                                 <a :href="getFSUrl(item)" target="_blank"> {{item.name}}</a>
                                 <p v-if='showPardir==true'><small class="text-muted">{{item.pardir}}</small>
                                 </p>
@@ -151,25 +154,24 @@
                                 <span style="font-size: small;">{{item.modify_time}}</span>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-danger" v-on:click="makeSureDelete(item)" v-b-tooltip.hover :title="translate('delete')">
+                                <button class="btn btn-sm btn-danger" v-on:click="makeSureDelete(item)" v-b-tooltip.hover :title="i18n.t('delete')">
                                     <b-icon icon="trash"></b-icon>
                                 </button>
                                 <b-button class="btn btn-sm btn-warning" v-on:click="showRenameModal(item)"
-                                    v-b-modal.modal-rename v-b-tooltip.hover :title="translate('rename')">
+                                    v-b-modal.modal-rename v-b-tooltip.hover :title="i18n.t('rename')">
                                     <b-icon icon="vr"></b-icon>
                                 </b-button>
                                 
                                 <b-button class="btn btn-sm btn-info" v-if="item.editable==true"
                                     v-on:click="showFileModal(item)" v-b-modal.modal-file v-b-tooltip.hover
-                                    :title="translate('view')">
+                                    :title="i18n.t('view')">
                                     <b-icon icon="eye"></b-icon>
                                 </b-button>
-                                <b-button class="btn btn-sm btn-info" v-on:click="setFileQrcode(item)"
-                                    v-if="item.type!='folder'" v-b-modal.modal-filelink v-b-tooltip.hover
-                                    :title="translate('displayDownloadQRCode')">
+                                <b-button class="btn btn-sm btn-info" v-on:click="setFileQrcode(item)" v-if="item.type!='folder'"
+                                    v-b-modal.modal-filelink v-b-tooltip.hover :title="i18n.t('displayQRCode')">
                                     <b-icon icon="upc-scan"></b-icon>
                                 </b-button>
-                                <a class="btn btn-sm btn-info" :href="getDownloadUrl(item)">
+                                <a class="btn btn-sm btn-info" :href="getDownloadUrl(item)" v-b-tooltip.hover :title="i18n.t('download')">
                                     <b-icon icon="download"></b-icon>
                                 </a>
                             </td>
@@ -177,7 +179,7 @@
                     </tbody>
                 </table>
                 <!-- Modal link -->
-                <b-modal id="modal-link" :title="translate('scanUsePhoneBrower')" header-bg-variant="dark"
+                <b-modal id="modal-link" :title="i18n.t('scanUsePhoneBrower')" header-bg-variant="dark"
                     header-text-variant="light" @shown="refreshConnectionLink()"  hide-footer>
                     <div class="modal-body middle">
                         <div id='connectionLink2' style="width: 50%; margin: 0 auto"></div> </div>
@@ -187,25 +189,25 @@
                     <div id='fileQrcode' style="width: 50%; margin: 0 auto "></div>
                 </b-modal>
                 <!-- Modal rename -->
-                <b-modal id="modal-rename" :title="translate('rename')" @ok="renameDir()" >
+                <b-modal id="modal-rename" :title="i18n.t('rename')" @ok="renameDir()" >
                     <div class="mb-3">
-                        <label for="exampleFormControlInput1" class="form-label">{{translate('filename')}}</label>
+                        <label for="exampleFormControlInput1" class="form-label">{{i18n.t('filename')}}</label>
                         <b-form-input class="form-control" :value="renameItem.name" disabled></b-form-input>
                     </div>
                     <div class="mb-3">
-                        <label for="exampleFormControlTextarea1" class="form-label">{{translate('newFileName')}}</label>
+                        <label for="exampleFormControlTextarea1" class="form-label">{{i18n.t('newFileName')}}</label>
                         <b-form-input class="form-control" v-model="renameItem.newName" required></b-form-input>
                     </div>
                     <template #modal-footer>
-                        <b-button block variant="primary" v-on:click="renameDir()">{{translate('rename')}}</b-button>
+                        <b-button block variant="primary" v-on:click="renameDir()">{{i18n.t('rename')}}</b-button>
                     </template>
                 </b-modal>
                 <!-- Modal new Dir -->
-                <b-modal id="modal-newdir" :title="translate('newDir')">
-                    <b-form-input :state="newDir.validate" v-model="newDir.name" :placeholder="translate('pleaseInputFileName')" v-on:input="checkIsDirInvalid()"></b-form-input>
-                    <b-icon variant='info' icon='exclamation-circle-fill'></b-icon> {{translate('createDirsTips')}}
+                <b-modal id="modal-newdir" :title="i18n.t('newDir')">
+                    <b-form-input :state="newDir.validate" v-model="newDir.name" :placeholder="i18n.t('pleaseInputFileName')" v-on:input="checkIsDirInvalid()"></b-form-input>
+                    <b-icon variant='info' icon='exclamation-circle-fill'></b-icon> {{i18n.t('createDirsTips')}}
                     <template #modal-footer>
-                        <b-button block variant="primary" v-on:click="createDir()">{{translate('createNewDir')}}</b-button>
+                        <b-button block variant="primary" v-on:click="createDir()">{{i18n.t('createNewDir')}}</b-button>
                     </template>
                 </b-modal>
                 <!-- Modal file content -->
@@ -213,23 +215,16 @@
                     <textarea class="form-control" v-model="fileEditor.content" cols="30" rows="20"></textarea>
                 </b-modal>
                 <!-- Modal file upload progress -->
-                <b-modal id="modal-upload" size="xl" :title="translate('fileUploadProgress')" hide-footer>
+                <b-modal id="modal-upload" size="xl" :title="i18n.t('fileUploadProgress')" hide-footer>
                     <b-progress  v-for="(item, index) in uploadQueue.tasks" :max="item.total" variant="info" class="mb-3"  height="20px">
                         <b-progress-bar :value="item.loaded">
                             {{item.file}} {{((item.loaded / item.total) * 100).toFixed(2)}}%
                         </b-progress-bar>
                     </b-progress>
                 </b-modal>
-                <!-- Modal delete dir warning -->
-                <b-modal ref="modal-delete" :title="translate('areYouSureDelete')" @ok='deleteDir'>
-                    {{translate("deletePath")}}
-                </b-modal>
             </div>
         </div>
     </div>
-    <script type="text/javascript" src="/static/lang.js"></script>
-    <script type="text/javascript" src="/static/lib.js"></script>
-    <script type="text/javascript" src="/static/httpfsclient.js"></script>
     <script type="text/javascript" src="/static/app.js"></script>
 </body>
 
