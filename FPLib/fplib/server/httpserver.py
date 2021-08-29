@@ -31,7 +31,7 @@ class IndexView(views.MethodView):
         return INDEX_HTML
 
 
-class WsgiServer:
+class WsgiServer(object):
     RULES = [(r'/', IndexView.as_view('index')), ]
 
     def __init__(self, name, host=None, port=80, template_folder=None,
