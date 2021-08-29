@@ -35,14 +35,14 @@ class SSHRequest(object):
 class CmdRequest(SSHRequest):
 
     def __init__(self, cmd, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(CmdRequest, self).__init__(*args, **kwargs)
         self.cmd = cmd
 
 
 class ScpRequest(SSHRequest):
 
     def __init__(self, local, remote, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(ScpRequest, self).__init__(*args, **kwargs)
         self.local = local or './'
         self.remote = remote or './'
 

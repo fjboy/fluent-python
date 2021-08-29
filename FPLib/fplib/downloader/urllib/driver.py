@@ -41,7 +41,7 @@ def find_links(url, link_regex=None, headers=None):
 class Urllib3Driver(driver.BaseDownloadDriver):
 
     def __init__(self, headers=None, **kwargs):
-        super().__init__(**kwargs)
+        super(Urllib3Driver, self).__init__(**kwargs)
         self.headers = headers
         self.filename_length = 1
         self.http = urllib3.PoolManager(num_pools=self.workers,
@@ -57,7 +57,7 @@ class Urllib3Driver(driver.BaseDownloadDriver):
         self.filename_length = min(self.filename_length, FILE_NAME_MAX_SIZE)
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
-        super().download_urls(url_list)
+        super(Urllib3Driver, self).download_urls(url_list)
 
     def download(self, url):
         file_name = os.path.basename(url)
