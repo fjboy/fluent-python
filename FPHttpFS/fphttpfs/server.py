@@ -37,11 +37,12 @@ class FluentHttpFS(httpserver.WsgiServer):
         if password:
             LOG.info('auth request before request')
             self.before_request = self.auth_all_request
-        super().__init__('FluentHttpFS', host=host, port=port,
-                         template_folder=os.path.join(ROUTE, 'templates'),
-                         static_folder=os.path.join(ROUTE, 'static'),
-                         converters_ext=[('regex', RegexConverter)],
-                         secret_key='fphttpfs-server-secret-key')
+        super(FluentHttpFS, self).__init__(
+            'FluentHttpFS', host=host, port=port,
+            template_folder=os.path.join(ROUTE, 'templates'),
+            static_folder=os.path.join(ROUTE, 'static'),
+            converters_ext=[('regex', RegexConverter)],
+            secret_key='fphttpfs-server-secret-key')
         LOG.debug('static_folder=%s, template_path=%s',
                   self.static_folder, self.template_folder)
         self.fs_root = fs_root or '.'
