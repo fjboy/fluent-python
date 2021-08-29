@@ -72,18 +72,22 @@ class Disk:
     def io_counters():
         return psutil.disk_io_counters()
 
+    @staticmethod
     def usage(path):
         return psutil.disk_usage(path)
 
 
 class Net:
 
+    @staticmethod
     def if_addrs():
         return psutil.net_if_addrs()
 
+    @staticmethod
     def if_stats():
         return psutil.net_if_stats()()
 
+    @staticmethod
     def io_counters(pernic=False):
         return psutil.net_io_counters(pernic=pernic)
 
