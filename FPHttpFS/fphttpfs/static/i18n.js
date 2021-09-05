@@ -99,7 +99,7 @@ const MESSAGES = {
     },
 };
 
-const i18n = new VueI18n({locale: 'en', messages: MESSAGES})
+const I18N = new VueI18n({locale: 'en', messages: MESSAGES})
 
 function getUserSettedLang() {
     const cookies = document.cookie.split(';');
@@ -113,10 +113,10 @@ function getUserSettedLang() {
 }
 
 function getDispalyLang() {
-    return i18n.locale;
+    return I18N.locale;
 }
 
 function setDisplayLang(language) {
-    i18n.locale = language;
+    I18N.locale = language;
     document.cookie = `language=${language}`;
 }

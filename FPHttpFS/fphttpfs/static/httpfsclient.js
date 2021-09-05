@@ -68,7 +68,9 @@ class HttpFSClient {
             let port = window.location.port != '' ? `/${window.location.port}` : ''
             return `${window.location.protocol}//${window.location.host}${port}`
         }
-        this.get = function(url, params){this.request('GET', url, params)}
+        this.get = function(url, params){
+            this.request('GET', url, params)
+        }
         this.delete = function(url, params){this.request('DELETE', url, params)}
         this.post = function(url, params){this.request('POST', url, params)}
         this.put = function(url, params){this.request('PUT', url, params)}
@@ -77,10 +79,10 @@ class HttpFSClient {
         this.getFsUrl = function(dirPath){return `/fs${this._safe_path(dirPath)}`}
         this.getDownloadUrl = function(dirPath){return `/download${this._safe_path(dirPath)}`}
 
-        this.fsGet = function(path, showAll=false, params={}){
+        this.fsGet = function(path, showAll=false){
             // path like: /dir1/dir2
             let tmp_path = this._safe_path(path);
-            this.get(`/fs${tmp_path}?showAll=${showAll}`, params)
+            return axios.get(`/fs${tmp_path}?showAll=${showAll}`)
         }
         this.fsDelete = function(path, force=false, params={}){
             let tmp_path = this._safe_path(path);
@@ -96,17 +98,17 @@ class HttpFSClient {
             this.put(`/fs${tmp_path}`, req_params);
         }
 
-        this.listDir = function (pathItems, showAll, onload_callback, onerror_callback = null) {
-            let dir = pathItems.join('/')
-            this.fsGet(dir, showAll, {
-                onload_callback: onload_callback,
-                onerror_callback: onerror_callback})
+        this.ls = function (path, showAll=false) {
+            let safe_path = this._safe_path(path);
+            return axios.get(`/fs${safe_path}?showAll=${showAll}`)
         };
-        this.deleteDir = function (pathItems, onload_callback, onerror_callback = null) {
-            let dir = pathItems.join('/')
-            this.fsDelete(dir, false, {
-                onload_callback: onload_callback,
-                onerror_callback: onerror_callback})
+        this.rm = function (path, force=false) {
+            let safe_path = this._safe_path(path);
+            return axios.delete(`/fs${safe_path}?force=${force}`)
+        }
+        this.mkdir = function (path) {
+            let safe_path = this._safe_path(path);
+            return axios.post(`/fs${safe_path}`)
         };
 
         this.createDir = function (dirPath, onload_callback, onerror_callback = null) {
@@ -114,12 +116,6 @@ class HttpFSClient {
                 onload_callback: onload_callback,
                 onerror_callback: onerror_callback
             });
-        };
-        this.getFileContent = function (filePath, onload_callback, onerror_callback = null) {
-            this.fsGet(filePath, this.showAll, {
-                onload_callback: onload_callback,
-                onerror_callback: onerror_callback
-            })
         };
         this.uploadFile = function (path_list, file, onload_callback, onerror_callback = null, uploadCallback = null) {
             var action = {
@@ -147,3 +143,5 @@ class HttpFSClient {
         }
     }
 }
+
+export {HttpFSClient};

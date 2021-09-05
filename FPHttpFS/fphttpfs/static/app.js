@@ -1,5 +1,7 @@
+//use custom bootstrap styling
+import {HttpFSClient} from './httpfsclient.js'
 
-var app = new Vue({
+new Vue({
     el: '#app',
     data: {
         children: [],
@@ -26,25 +28,19 @@ var app = new Vue({
             this.goTo(this.pathItems.length - 1);
         },
         clickPath: function (child) {
-            if (child.type != "folder") {
-                return
-            }
+            if (child.type != "folder") { return }
             var self = this;
             let pathItems = self.getPathText(self.pathItems).concat(child.name);
-
-            this.fsClient.listDir(
-                pathItems, self.showAll,
-                function (status, data) {
-                    if (status == 200) {
-                        self.currentDirList.push(child.name);
-                        self.pathItems.push({ text: child.name, href: '#' })
-                        self.children = data.dir.children;
-                        self.diskUsage = data.dir.disk_usage;
-                    } else {
-                        self.log.error(`请求失败，${status}, ${data.error}`);
-                    }
-                }
-            );
+            this.fsClient.ls(
+                pathItems.join('/'), self.showAll
+            ).then(success => {
+                self.currentDirList.push(child.name);
+                self.pathItems.push({ text: child.name, href: '#' })
+                self.children = success.data.dir.children;
+                self.diskUsage = success.data.dir.disk_usage;
+            }).catch(error => {
+                self.log.error(`请求失败，${error.status}, ${error.data.error}`);
+            });
         },
         getPathText: function (pathItems) {
             let pathText = [];
@@ -68,19 +64,16 @@ var app = new Vue({
             var self = this;
             self.showPardir = false;
             let pathItems = self.getPathText(getItemsBefore(self.pathItems, clickIndex));
-            this.fsClient.listDir(
-                pathItems, self.showAll,
-                function (status, data) {
-                    if (status == 200) {
-                        delItemsAfter(self.currentDirList, clickIndex);
-                        delItemsAfter(self.pathItems, clickIndex);
-                        self.children = data.dir.children;
-                        self.diskUsage = data.dir.disk_usage;
-                    } else {
-                        self.log.error(`请求失败，${status}, ${data.error}`);
-                    }
-                }
-            );
+            this.fsClient.ls(
+                pathItems.join('/'), self.showAll
+            ).then(success => {
+                delItemsAfter(self.currentDirList, clickIndex);
+                delItemsAfter(self.pathItems, clickIndex);
+                self.children = success.data.dir.children;
+                self.diskUsage = success.data.dir.disk_usage;
+            }).catch(error => {
+                self.log.error(`请求失败，${error.status}, ${error.data.error}`);
+            });
         },
         setFileQrcode: function (dirItem) {
             this.downloadFile = dirItem;
@@ -97,7 +90,7 @@ var app = new Vue({
         makeSureDelete: function (item) {
             var self = this;
             this.$bvModal.msgBoxConfirm(item.name, {
-                title: i18n.t('makeSureDelete'),
+                title: I18N.t('makeSureDelete'),
                 okVariant: 'danger',
             }).then(value => {
                 self.log.debug(`make sure delete? ${value}`)
@@ -109,19 +102,14 @@ var app = new Vue({
         },
         deleteDir: function (item) {
             var self = this;
-            this.fsClient.deleteDir(
-                this.getPathText(self.pathItems).concat([item.name]),
-                function (status, data) {
-                    if (status == 200) {
-                        self.log.info('删除成功');
-                    } else {
-                        self.log.error(`删除失败, ${status}, ${data.error}`);
-                    }
-                },
-                function () {
-                    self.log.error('请求失败');
-                }
-            );
+            this.fsClient.rm(
+                this.getPathText(self.pathItems).concat([item.name]).join('/'), false
+            ).then(successs => {
+                self.log.info('删除成功');
+                self.refreshChildren();
+            }).catch(error => {
+                self.log.error(`请求失败, ${error.status}, ${error.data.error}`);
+            });
         },
         toggleShowAll: function () {
             this.showAll = !this.showAll;
@@ -155,28 +143,22 @@ var app = new Vue({
         createDir: function () {
             var self = this;
             if (this.newDir.name == '') {
-                this.log.error(i18n.t('dirNameNull'))
+                this.log.error(I18N.t('dirNameNull'))
                 return;
             }
             if (!this.newDir.validate) {
-                this.log.error(i18n.t('invalidChar'))
+                this.log.error(I18N.t('invalidChar'))
                 return;
             }
             var self = this;
             let newDir = self.getDirPath(self.currentDirList.concat(self.newDir.name));
-            self.fsClient.fsCreate(newDir, {
-                onload_callback: function (status, data) {
-                    if (status == 200) {
-                        self.log.info('目录创建成功');
-                        self.refreshChildren();
-                    } else {
-                        self.log.error(`目录创建失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                    }
-                    self.newDir = { name: '' }
-                },
-                onerror_callback: function () {
-                    self.log.error('请求失败');
-                }
+            self.fsClient.mkdir(newDir).then(success => {
+                console.log(success)
+                self.log.info('目录创建成功');
+                self.refreshChildren();
+            }).catch(error => {
+                console.error(error);
+                self.log.error(`目录创建失败, ${error.status}, ${error.data.error}`, autoHideDelay = 5000)
             });
         },
         uploadFiles: function (files) {
@@ -303,22 +285,19 @@ var app = new Vue({
         },
         refreshDir: function () {
             var self = this;
-            this.fsClient.fsGet(
-                this.currentDirList.join('/'), self.showAll, {
-                onload_callback: function (status, data) {
-                    if (status == 200) {
-                        self.children = data.dir.children;
-                        self.diskUsage = data.dir.disk_usage;
-                    } else {
-                        self.log.error(`请求失败，${status}, ${data.error}`);
-                    }
-                }
+            this.fsClient.ls(
+                this.currentDirList.join('/'), self.showAll
+            ).then(success => {
+                self.children = success.data.dir.children;
+                self.diskUsage = success.data.dir.disk_usage;
+            }).catch*(error => {
+                self.log.error(`请求失败，${error.data.error}`);
             });
         }
     },
     created: function () {
         setDisplayLang(getUserSettedLang());
-        this.log = new LoggerWithBVToast(this.$bvToast, debug = false)
+        this.log = new LoggerWithBVToast(this.$bvToast, false)
         this.log.debug('vue app created');
         this.goTo(-1);
     },

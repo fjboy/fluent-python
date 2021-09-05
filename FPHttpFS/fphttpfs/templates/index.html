@@ -3,30 +3,12 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <title>[[ name ]]</title>
-    <link rel="shortcut icon" href="/favicon.ico">
-
-    <!-- Vue -->
-    <script type="text/javascript" src="/static/vue/vue.min.js"></script>
-    <script type="text/javascript" src="/static/vue/vue-i18n.js"></script>
-    <!-- bootstrap css -->
-    <link rel="stylesheet" href="/static/bootstrap-4.6.0/css/bootstrap.min.css">
-    <!-- bootstrap-vue  -->
-    <link rel="stylesheet" href="/static/bootstrap-vue/bootstrap-vue.min.css">
-    <script type="application/javascript" src="/static/bootstrap-vue/bootstrap-vue.min.js"></script>
-    <script type="application/javascript" src="/static/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
-    <!-- qrcode -->
-    <script src="/static/qrcode.js"></script>
-
-    <script type="text/javascript" src="/static/i18n.js"></script>
-    <script type="text/javascript" src="/static/lib.js"></script>
-    <script type="text/javascript" src="/static/httpfsclient.js"></script>
+    {% include "requires.html" %}
 
 </head>
 
 <body>
-    <!-- <div id='connectionLink' width='100px' height="100px" style="width:100px; height: 100px" ></div> -->
     <div id='app' class="container-lg">
         <div class="row">
             <div class="col-lg-12 col-sm-12">
@@ -38,7 +20,7 @@
                     <b-collapse id="nav-collapse" is-nav>
                         <b-navbar-nav>
                             <b-nav-item href="#">
-                                <b-a href="#" v-b-modal.modal-link>{{i18n.t('scanLink')}}</b-a>
+                                <b-a href="#" v-b-modal.modal-link>{{I18N.t('scanLink')}}</b-a>
                             </b-nav-item>
                         </b-navbar-nav>
 
@@ -51,27 +33,27 @@
                                 </b-badge>
                             </b-a>
                             <b-nav-form right>
-                                <b-form-input size="sm" class="mr-sm-2" :placeholder="i18n.t('pleaseInput')"
+                                <b-form-input size="sm" class="mr-sm-2" :placeholder="I18N.t('pleaseInput')"
                                     v-model="searchPartern" list='searchHistory' @click='refreshSearchHistory'></b-form-input>
                                 <datalist id="searchHistory">
                                     <option v-for="item in searchHistory">{{item}}</option>
                                 </datalist>
                                 <b-button size="sm" class="my-2 my-sm-0" type="button" v-on:click="search()">
-                                    {{i18n.t('search')}}
+                                    {{I18N.t('search')}}
                                 </b-button>
                             </b-nav-form>
 
-                            <b-nav-item-dropdown :text="i18n.t('lang')" right>
+                            <b-nav-item-dropdown :text="I18N.t('lang')" right>
                                 <b-dropdown-item href="#" v-on:click="setDisplayLang('en')">
-                                    {{i18n.t('en')}}</b-dropdown-item>
+                                    {{I18N.t('en')}}</b-dropdown-item>
                                 <b-dropdown-item href="#" v-on:click="setDisplayLang('zh')">
-                                    {{i18n.t('zh')}}</b-dropdown-item>
+                                    {{I18N.t('zh')}}</b-dropdown-item>
                             </b-nav-item-dropdown>
 
                             <b-nav-item-dropdown right>
                                 <template #button-content><em> <b-icon icon="person-fill"></b-icon> [[ username ]]</em></template>
-                                <b-dropdown-item href="#"><b-icon icon="tools"></b-icon> {{i18n.t('setting')}}</b-dropdown-item>
-                                <b-dropdown-item href="#"><b-icon icon="power"></b-icon> {{i18n.t('signOut')}}</b-dropdown-item>
+                                <b-dropdown-item href="#"><b-icon icon="tools"></b-icon> {{I18N.t('setting')}}</b-dropdown-item>
+                                <b-dropdown-item href="#"><b-icon icon="power"></b-icon> {{I18N.t('signOut')}}</b-dropdown-item>
                             </b-nav-item-dropdown>
                         </b-navbar-nav>
                     </b-collapse>
@@ -79,9 +61,9 @@
             </div>
             <div class="col-lg-9 col-sm-9" style="margin-top: 10px;">
                 <label for="inputUploadFile"
-                    class="btn btn-sm btn-outline-secondary">{{i18n.t('uploadFiles')}}</label>
-                <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{i18n.t('uploadDir')}}</label>
-                <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{i18n.t('newDir')}}</label>
+                    class="btn btn-sm btn-outline-secondary">{{I18N.t('uploadFiles')}}</label>
+                <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{I18N.t('uploadDir')}}</label>
+                <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{I18N.t('newDir')}}</label>
                 <label>
                     <b-icon icon="hdd-fill" variant="secondary"></b-icon> {{getDiskUsage()}}
                     <b-progress :max="diskUsage.total" variant="secondary" style="height: 4px;">
@@ -103,7 +85,7 @@
                 <div class="custom-control custom-switch">
                     <input class="custom-control-input" type="checkbox" v-model="showAll" id="showAll"
                         v-on:click="toggleShowAll()">
-                    <label class="custom-control-label" for="showAll">{{i18n.t('displayAll')}}</label>
+                    <label class="custom-control-label" for="showAll">{{I18N.t('displayAll')}}</label>
                 </div>
             </div>
             <div class="col-lg-1 col-sm-3" style="margin-top: 10px;">
@@ -130,10 +112,10 @@
                 <table class="table table-hover table-sm " style="width: 100%;">
                     <thead class="table-light">
                         <tr>
-                            <th>{{i18n.t('file')}} <b-icon icon="sort-alpha-down"></b-icon></th>
-                            <th>{{i18n.t('size')}} </th>
-                            <th>{{i18n.t('modifyTime')}}</th>
-                            <th>{{i18n.t('operation')}}</th>
+                            <th>{{I18N.t('file')}} <b-icon icon="sort-alpha-down"></b-icon></th>
+                            <th>{{I18N.t('size')}} </th>
+                            <th>{{I18N.t('modifyTime')}}</th>
+                            <th>{{I18N.t('operation')}}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -154,24 +136,24 @@
                                 <span style="font-size: small;">{{item.modify_time}}</span>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-danger" v-on:click="makeSureDelete(item)" v-b-tooltip.hover :title="i18n.t('delete')">
+                                <button class="btn btn-sm btn-danger" v-on:click="makeSureDelete(item)" v-b-tooltip.hover :title="I18N.t('delete')">
                                     <b-icon icon="trash"></b-icon>
                                 </button>
                                 <b-button class="btn btn-sm btn-warning" v-on:click="showRenameModal(item)"
-                                    v-b-modal.modal-rename v-b-tooltip.hover :title="i18n.t('rename')">
+                                    v-b-modal.modal-rename v-b-tooltip.hover :title="I18N.t('rename')">
                                     <b-icon icon="vr"></b-icon>
                                 </b-button>
                                 
                                 <b-button class="btn btn-sm btn-info" v-if="item.editable==true"
                                     v-on:click="showFileModal(item)" v-b-modal.modal-file v-b-tooltip.hover
-                                    :title="i18n.t('view')">
+                                    :title="I18N.t('view')">
                                     <b-icon icon="eye"></b-icon>
                                 </b-button>
                                 <b-button class="btn btn-sm btn-info" v-on:click="setFileQrcode(item)" v-if="item.type!='folder'"
-                                    v-b-modal.modal-filelink v-b-tooltip.hover :title="i18n.t('displayQRCode')">
+                                    v-b-modal.modal-filelink v-b-tooltip.hover :title="I18N.t('displayQRCode')">
                                     <b-icon icon="upc-scan"></b-icon>
                                 </b-button>
-                                <a class="btn btn-sm btn-info" :href="getDownloadUrl(item)" v-b-tooltip.hover :title="i18n.t('download')">
+                                <a class="btn btn-sm btn-info" :href="getDownloadUrl(item)" v-b-tooltip.hover :title="I18N.t('download')">
                                     <b-icon icon="download"></b-icon>
                                 </a>
                             </td>
@@ -179,7 +161,7 @@
                     </tbody>
                 </table>
                 <!-- Modal link -->
-                <b-modal id="modal-link" :title="i18n.t('scanUsePhoneBrower')" header-bg-variant="dark"
+                <b-modal id="modal-link" :title="I18N.t('scanUsePhoneBrower')" header-bg-variant="dark"
                     header-text-variant="light" @shown="refreshConnectionLink()"  hide-footer>
                     <div class="modal-body middle">
                         <div id='connectionLink2' style="width: 50%; margin: 0 auto"></div> </div>
@@ -189,25 +171,25 @@
                     <div id='fileQrcode' style="width: 50%; margin: 0 auto "></div>
                 </b-modal>
                 <!-- Modal rename -->
-                <b-modal id="modal-rename" :title="i18n.t('rename')" @ok="renameDir()" >
+                <b-modal id="modal-rename" :title="I18N.t('rename')" @ok="renameDir()" >
                     <div class="mb-3">
-                        <label for="exampleFormControlInput1" class="form-label">{{i18n.t('filename')}}</label>
+                        <label for="exampleFormControlInput1" class="form-label">{{I18N.t('filename')}}</label>
                         <b-form-input class="form-control" :value="renameItem.name" disabled></b-form-input>
                     </div>
                     <div class="mb-3">
-                        <label for="exampleFormControlTextarea1" class="form-label">{{i18n.t('newFileName')}}</label>
+                        <label for="exampleFormControlTextarea1" class="form-label">{{I18N.t('newFileName')}}</label>
                         <b-form-input class="form-control" v-model="renameItem.newName" required></b-form-input>
                     </div>
                     <template #modal-footer>
-                        <b-button block variant="primary" v-on:click="renameDir()">{{i18n.t('rename')}}</b-button>
+                        <b-button block variant="primary" v-on:click="renameDir()">{{I18N.t('rename')}}</b-button>
                     </template>
                 </b-modal>
                 <!-- Modal new Dir -->
-                <b-modal id="modal-newdir" :title="i18n.t('newDir')">
-                    <b-form-input :state="newDir.validate" v-model="newDir.name" :placeholder="i18n.t('pleaseInputFileName')" v-on:input="checkIsDirInvalid()"></b-form-input>
-                    <b-icon variant='info' icon='exclamation-circle-fill'></b-icon> {{i18n.t('createDirsTips')}}
+                <b-modal id="modal-newdir" :title="I18N.t('newDir')">
+                    <b-form-input :state="newDir.validate" v-model="newDir.name" :placeholder="I18N.t('pleaseInputFileName')" v-on:input="checkIsDirInvalid()"></b-form-input>
+                    <b-icon variant='info' icon='exclamation-circle-fill'></b-icon> {{I18N.t('createDirsTips')}}
                     <template #modal-footer>
-                        <b-button block variant="primary" v-on:click="createDir()">{{i18n.t('createNewDir')}}</b-button>
+                        <b-button block variant="primary" v-on:click="createDir()">{{I18N.t('createNewDir')}}</b-button>
                     </template>
                 </b-modal>
                 <!-- Modal file content -->
@@ -215,7 +197,7 @@
                     <textarea class="form-control" v-model="fileEditor.content" cols="30" rows="20"></textarea>
                 </b-modal>
                 <!-- Modal file upload progress -->
-                <b-modal id="modal-upload" size="xl" :title="i18n.t('fileUploadProgress')" hide-footer>
+                <b-modal id="modal-upload" size="xl" :title="I18N.t('fileUploadProgress')" hide-footer>
                     <b-progress  v-for="(item, index) in uploadQueue.tasks" :max="item.total" variant="info" class="mb-3"  height="20px">
                         <b-progress-bar :value="item.loaded">
                             {{item.file}} {{((item.loaded / item.total) * 100).toFixed(2)}}%
@@ -225,7 +207,7 @@
             </div>
         </div>
     </div>
-    <script type="text/javascript" src="/static/app.js"></script>
+    <script type="module" src="/static/app.js"></script>
 </body>
 
 </html>

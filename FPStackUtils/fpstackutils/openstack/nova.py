@@ -1,7 +1,9 @@
 from __future__ import print_function
 from concurrent import futures
+from re import S
 import eventlet
 import threading
+import contextlib
 
 from fplib.common import log
 from fpstackutils.openstack import client
@@ -9,46 +11,62 @@ from fpstackutils.openstack import client
 LOG = log.getLogger(__name__)
 
 
-percent = 0
+class ServerCleanUp(object):
+    
+    def __init__(self):
+        self.openstack = client.OpenstackClient.create_instance()
+        self.percent = 0
+        self.progress_format = 'progress: {:.2f}% {}'
 
-def print_progress():
-    while percent < 100:
-        print('progress: {:.2f} % {}'.format(percent, '▋' * percent), end='\r')
-        eventlet.sleep(1)
-    print('progress: {:.2f} %'.format(percent))
+    def cleanup(self, name=None, workers=None):
+        workers = workers or 1
+        servers = self._list(name=name)
+        self.percent = 0
 
+        while len(servers) > 0:
+            LOG.info('delete %s vms ...' % len(servers))
+            with self.start_progress(len(servers)) as progress:
+                deleted = 0
+                with futures.ThreadPoolExecutor(
+                    max_workers=workers) as executor:
+                    for result in executor.map(self._delete, servers):
+                        deleted += 1
+                        progress['computed'] = deleted
 
-def concurrent_delete_servers(workers=10, name=None):
-    global percent
-    cli = client.OpenstackClient.create_instance()
+            servers = self._list(name=name)
 
-    def _delete(server):
-        if name and (name in server.name):
-            LOG.info('skip to delete server: %s(%s)', server.name, server.id)
-            return
-        LOG.debug('delete server %s', server)
-        cli.nova.servers.delete(server.id)
+    def _delete(self, server):
+        return self.openstack.nova.servers.delete(server.id)
 
-    LOG.info('get servers')
-    servers = []
-    for server in cli.nova.servers.list():
-        if getattr(server, 'OS-EXT-STS:task_state') == 'deleting':
-            continue
-        servers.append(server)
+    def _list(self, name=None):
+        LOG.info('get servers')
+        servers = []
+        for s in self.openstack.nova.servers.list():
+            if name and (name not in s.name):
+                LOG.info('skip to delete server: %s(%s)', s.name, s.id)
+                continue
+            if getattr(S, 'OS-EXT-STS:task_state') == 'deleting':
+                continue
+            servers.append(s)
+        return servers
 
-    while len(servers) > 0:
-        LOG.info('delete %s vms ...' % len(servers))
-        t = threading.Thread(target=print_progress)
+    @contextlib.contextmanager
+    def start_progress(self, total, interva=1):
+        self.percent = 0
+        progress = {'computed': 0, 'total': total}
+        t = threading.Thread(target=self.print_progress, args=(progress,))
         t.setDaemon(True)
         t.start()
-
-        percent = 0
-        deleted = 0
-        with futures.ThreadPoolExecutor(max_workers=workers) as executor:
-            for r in executor.map(_delete, servers):
-                deleted += 1
-                percent = deleted * 100 / len(servers)
-
-        LOG.info('get servers')
-        servers = cli.nova.servers.list()
+        yield progress
         t.join()
+
+    def print_progress(self, progress, interval=1):
+        
+        while True:
+            percent = progress['completed'] * 100 / len(progress['total'])
+            if percent >= 100:
+                break
+            print(self.progress_format.format(percent, '▋' * percent),
+                  end='\r')
+            eventlet.sleep(interval)
+        print()

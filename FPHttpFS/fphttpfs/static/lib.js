@@ -1,7 +1,6 @@
-
 function delItemsAfter(array, afterIndex){
     // Delete array items after <afterIndex>
-    while(array.length > afterIndex +1){
+    while(array.length > afterIndex + 1){
         array.pop();
     }
 }
