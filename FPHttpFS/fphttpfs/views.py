@@ -185,3 +185,7 @@ class AuthView(views.MethodView):
             return get_json_response({}, status=200)
         else:
             return get_json_response({'error': 'auth failed'}, status=401)
+
+    def delete(self):
+        session.clear()
+        return get_json_response({}, status=204)

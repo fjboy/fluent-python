@@ -136,7 +136,7 @@ new Vue({
                 return;
             }
             if (self.renameItem.newName == '') {
-                self.log.error(I18N.fileNameCannotEmpty);
+                self.log.error(I18N.t('fileNameCannotEmpty'));
                 return;
             }
             this.rename(
@@ -191,20 +191,6 @@ new Vue({
                 }).catch(error => {
                     self.log.error(`文件上传失败, ${status}, ${data.error}`, 5000)
                 });
-                // self.fsClient.uploadFile(
-                //     self.getPathText(self.pathItems), file,
-                //     function (status, data) {
-                //         if (status != 200) {
-                //             self.log.error(`文件上传失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                //         } else {
-                //         }
-                //     },
-                //     function () { self.log.error('请求失败') },
-                //     function (loaded, total) {
-                //         progress.loaded = loaded;
-                //         progress.total = total;
-                //     }
-                // )
             }
         },
         uploadFile: function () {
@@ -223,7 +209,7 @@ new Vue({
             ).then(success => {
                 self.fileEditor.content = success.data;
             }).catch(error => {
-                let msg = `${I18N.getfileContentFailed}, ${error.status}, ${error.data.error}`;
+                let msg = `${I18N.t('getfileContentFailed')}, ${error.status}, ${error.data.error}`;
                 self.log.error(msg, 5000);
             })
         },
@@ -257,7 +243,7 @@ new Vue({
             self.fsClient.findHistory().then(success => {
                 self.searchHistory = success.data.search.history;
             }).catch(error => {
-                self.log.error(I18N.getSearchHistoryFailed);
+                self.log.error(I18N.t('getSearchHistoryFailed'));
             })
         },
         search: function () {

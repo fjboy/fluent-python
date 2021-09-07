@@ -111,17 +111,6 @@ class HttpFSClient {
             let tmp_path = this._safe_path(path);
             return axios.put(`/fs${tmp_path}`, {'dir': {'new_name': new_name}})
         }
-
-        this.uploadFile = function (path_list, file, onload_callback, onerror_callback = null, uploadCallback = null) {
-            let action = {
-                name: 'upload_file',
-                params: { path_list: path_list , relative_path: file.webkitRelativePath}
-            };
-            let formData = new FormData();
-            formData.append('action', JSON.stringify(action));
-            formData.append('file', file);
-            this.postAction(formData, onload_callback, onerror_callback = onerror_callback, uploadCallback = uploadCallback);
-        };
         this.cat = function(file){
             let safe_path = this._safe_path(file);
             return axios.get(`/file${safe_path}`)
@@ -149,10 +138,8 @@ class HttpFSClient {
         this.findHistory = function(){
             return axios.get('/search');
         };
-        this.auth = function(authInfo, params={}){
-            let req_params = params;
-            req_params.body = {auth: authInfo}
-            this.post('/auth', req_params);
+        this.auth = function(authInfo){
+            return axios.post('/auth', {auth: authInfo})
         };
     }
 }

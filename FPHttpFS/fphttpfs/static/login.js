@@ -14,18 +14,14 @@ new Vue({
                 self.log.error(I18N.t('invalidAuthInfo'))
                 return;
             }
-            this.fsclient.auth(self.auth, {
-                onload_callback: function(status, data){
-                    if (status != 200){
-                        self.log.error(I18N.t('authFailed'));
-                        return;
-                    }
-                    window.location.reload();
-                },
-                onerror_callback: function(status, data){
-                    self.log.error(I18N.t('loginFailed'))
-                }
-            });
+            this.fsclient.auth(
+                self.auth
+             ).then( success => {
+                 self.log.error(I18N.t('authSuccess'));
+                 window.location.reload();
+             }).catch(error => {
+                 self.log.error(I18N.t('loginFailed'))
+             });
         },
         changeLanguage: function(language,){
             setDisplayLang(language);
