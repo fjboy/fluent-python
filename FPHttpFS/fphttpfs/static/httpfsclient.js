@@ -77,16 +77,13 @@ class HttpFSClient {
         this.getFSLink = function(dirPath){return `${this._getEndpoint()}/fs/${dirPath}`}
 
         this.getFsUrl = function(dirPath){return `/fs${this._safe_path(dirPath)}`}
-        this.getDownloadUrl = function(dirPath){return `/download${this._safe_path(dirPath)}`}
+        this.getDownloadUrl = function(dirPath){return `/file${this._safe_path(dirPath)}`}
 
         this.fsGet = function(path, showAll=false){
             // path like: /dir1/dir2
             let tmp_path = this._safe_path(path);
             return axios.get(`/fs${tmp_path}?showAll=${showAll}`)
         }
-        this.fsDelete = function(path, force=false, params={}){
-            let tmp_path = this._safe_path(path);
-            this.delete(`/fs${tmp_path}?force=${force}`, params)}
         this.fsCreate = function(path, params={}){
             let tmp_path = this._safe_path(path);
             this.post(`/fs${tmp_path}`, params);
@@ -110,37 +107,53 @@ class HttpFSClient {
             let safe_path = this._safe_path(path);
             return axios.post(`/fs${safe_path}`)
         };
+        this.rename = function(path, new_name){
+            let tmp_path = this._safe_path(path);
+            return axios.put(`/fs${tmp_path}`, {'dir': {'new_name': new_name}})
+        }
 
-        this.createDir = function (dirPath, onload_callback, onerror_callback = null) {
-            this.fsCreate(dirPath, {
-                onload_callback: onload_callback,
-                onerror_callback: onerror_callback
-            });
-        };
         this.uploadFile = function (path_list, file, onload_callback, onerror_callback = null, uploadCallback = null) {
-            var action = {
+            let action = {
                 name: 'upload_file',
                 params: { path_list: path_list , relative_path: file.webkitRelativePath}
             };
-            var formData = new FormData();
+            let formData = new FormData();
             formData.append('action', JSON.stringify(action));
             formData.append('file', file);
             this.postAction(formData, onload_callback, onerror_callback = onerror_callback, uploadCallback = uploadCallback);
         };
-
-        this.searchPost = function(partern, params={}){
-            let req_params = params;
-            req_params.body = {'search': {'partern': partern}};
-            this.post('/search', req_params)
+        this.cat = function(file){
+            let safe_path = this._safe_path(file);
+            return axios.get(`/file${safe_path}`)
         };
-        this.getSearchHistory = function(params={}){
-            this.get('/search', params)
+        this.upload = function(path, file, uploadCallback=null){
+            let formData = new FormData();
+            formData.append('file', file);
+            let safe_path = this._safe_path(path);
+            return axios({
+                url: `/file${safe_path}`,
+                method: 'POST',
+                data: formData,
+                headers: {'Content-Type': 'multipart/form-data'},
+                onUploadProgress: function(progressEvent){
+                    if(uploadCallback){
+                        uploadCallback(progressEvent)
+                    }
+                },
+            });
+        };
+        this.find = function(name){
+            // find files by specified name, e.g. *.py, *.js
+            return axios.post('/search', {'search': {'partern': name}})
+        };
+        this.findHistory = function(){
+            return axios.get('/search');
         };
         this.auth = function(authInfo, params={}){
             let req_params = params;
             req_params.body = {auth: authInfo}
             this.post('/auth', req_params);
-        }
+        };
     }
 }
 

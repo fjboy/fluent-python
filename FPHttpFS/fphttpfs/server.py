@@ -22,14 +22,13 @@ class RegexConverter(BaseConverter):
 class FluentHttpFS(httpserver.WsgiServer):
 
     RULES = [
-        (r'/auth', views.AuthView.as_view('auth')),
-        (r'/favicon.ico', views.FaviconView.as_view('favicon')),
         (r'/', views.HomeView.as_view('home')),
+        (r'/favicon.ico', views.FaviconView.as_view('favicon')),
+        (r'/auth', views.AuthView.as_view('auth')),
         (r'/index.html', views.IndexView.as_view('index')),
-        (r'/action', views.ActionView.as_view('action')),
         (r'/fs<regex("/|/.*"):dir_path>', views.FSView.as_view('fs')),
-        (r'/download<regex("/|/.*"):dir_path>',
-            views.DownloadView.as_view('download')),
+        (r'/file<regex("/|/.*"):dir_path>',
+            views.FileView.as_view('file')),
         (r'/search', views.SearchView.as_view('search')),
     ]
 

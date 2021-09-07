@@ -34,7 +34,7 @@ class FSManager(object):
     def get_path_dict(self, path):
         pathstat = self.stat(path)
         return {'name': os.path.basename(path[-1]),
-                'size': self.parse_size(pathstat.st_size),
+                'size': self.human(pathstat.st_size),
                 'modify_time': date.parse_timestamp2str(
                     pathstat.st_mtime, '%Y/%m/%d %H:%M'),
                 'type': 'folder' if stat.S_ISDIR(pathstat.st_mode) else 'file',
@@ -44,7 +44,6 @@ class FSManager(object):
         abs_path = self.get_abs_path(path)
         if os.path.isfile(abs_path):
             t, _ = mimetypes.guess_type(abs_path)
-            LOG.debug('path type is %s', t)
             if t in ['text/plain', 'application/x-sh']:
                 return True
         return False
@@ -81,6 +80,11 @@ class FSManager(object):
 
     def ls(self, path, all=False):
         dirs = []
+        if self.is_file(path):
+            path_dict = self.get_path_dict(path)
+            path_dict['editable'] = self.editable(path)
+            dirs.append(path_dict)
+            return dirs
         for child in self.listdir(path):
             child_path = path[:]
             child_path.append(child)
@@ -111,7 +115,7 @@ class FSManager(object):
                     return key
             return 'file'
 
-    def parse_size(self, size):
+    def human(self, size):
         ONE_KB = 1024
         ONE_MB = ONE_KB * 1024
         ONE_GB = ONE_MB * 1024

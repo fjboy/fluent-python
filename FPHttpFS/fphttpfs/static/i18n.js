@@ -46,7 +46,10 @@ const MESSAGES = {
         pleaseInputUsername: 'please input username',
         pleaseInputPassword: 'please input password',
         authFailed: 'Auth Failed',
-        loginFailed: 'Login Failed'
+        loginFailed: 'Login Failed',
+        getfileContentFailed: 'get file content failed',
+        fileNameCannotEmpty: 'file name can not be empty',
+        getSearchHistoryFailed: 'get search history failed',
     },
     zh: {
         ok: '确定',
@@ -95,7 +98,10 @@ const MESSAGES = {
         pleaseInputUsername: '请输入用户名',
         pleaseInputPassword: '请输入密码',
         authFailed: '认证失败',
-        loginFailed: '登录失败'
+        loginFailed: '登录失败',
+        getfileContentFailed: '文件内容获取失败',
+        fileNameCannotEmpty: '文件名不能为空',
+        getSearchHistoryFailed: '无法获取搜索历史',
     },
 };
 

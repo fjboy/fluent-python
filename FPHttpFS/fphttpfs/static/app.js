@@ -30,10 +30,25 @@ new Vue({
         clickPath: function (child) {
             if (child.type != "folder") { return }
             var self = this;
-            let pathItems = self.getPathText(self.pathItems).concat(child.name);
+            let dirPath = ''
+            if (child.pardir){
+                dirPath = `${child.pardir}/${child.name}`;
+            } else {
+                dirPath = self.getPathText(self.pathItems).concat(child.name).join('/');
+            }
             this.fsClient.ls(
-                pathItems.join('/'), self.showAll
+                dirPath, self.showAll
             ).then(success => {
+                if (child.pardir) {
+                    // TODO delete currentDirList use pathItems
+                    this.pathItems = [];
+                    this.currentDirList = [];
+                    child.pardir.slice(1).split('/').forEach(item => {
+                        this.pathItems.push({text: item, href: '#'});
+                        self.currentDirList.push(item)
+                    })
+                    console.log(self.currentDirList)
+                }
                 self.currentDirList.push(child.name);
                 self.pathItems.push({ text: child.name, href: '#' })
                 self.children = success.data.dir.children;
@@ -121,20 +136,15 @@ new Vue({
                 return;
             }
             if (self.renameItem.newName == '') {
-                self.log.error('文件名不能为空');
+                self.log.error(I18N.fileNameCannotEmpty);
                 return;
             }
-            this.fsClient.fsRename(
-                self.getFSPath(self.renameItem.name), self.renameItem.newName, {
-                onload_callback: function (status, data) {
-                    if (status == 200) {
-                        self.log.info('重命名成功');
-                        self.refreshChildren();
-                    } else {
-                        self.log.error(`重命名失败, ${data.error}`, autoHideDelay = 5000)
-                    }
-                },
-                onerror_callback: function () { self.log.error('请求失败') }
+            this.rename(
+                self.getFSPath(self.renameItem.name), self.renameItem.newName
+            ).then(success => {
+                self.log.info('重命名成功');
+            }).catch(error => {
+                self.log.error(`重命名失败, ${error.status} ${error.data.error}`, 5000)
             });
         },
         showRenameModal: function (item) {
@@ -166,26 +176,35 @@ new Vue({
             if (files.length == 0) { return };
             self.log.info(`准备上传 ${files.length} 个文件`);
             for (let index = 0; index < files.length; index++) {
-                const file = files[index];
-                const progress = { file: file.name, loaded: 0, total: 100 };
+                let file = files[index];
+                let progress = { file: file.name, loaded: 0, total: 100 };
                 self.uploadQueue.tasks.push(progress);
-
-                self.fsClient.uploadFile(
-                    self.getPathText(self.pathItems), file,
-                    function (status, data) {
-                        if (status != 200) {
-                            self.log.error(`文件上传失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                        } else {
-                            self.refreshChildren()
-                            self.uploadQueue.completed += 1;
-                        }
-                    },
-                    function () { self.log.error('请求失败') },
-                    function (loaded, total) {
-                        progress.loaded = loaded;
-                        progress.total = total;
+                self.fsClient.upload(
+                    self.getPathText(self.pathItems).join('/'), file,
+                    function(e){
+                        progress.loaded = e.loaded;
+                        progress.total = e.total;
                     }
-                )
+                ).then(success => {
+                    self.refreshChildren()
+                    self.uploadQueue.completed += 1;
+                }).catch(error => {
+                    self.log.error(`文件上传失败, ${status}, ${data.error}`, 5000)
+                });
+                // self.fsClient.uploadFile(
+                //     self.getPathText(self.pathItems), file,
+                //     function (status, data) {
+                //         if (status != 200) {
+                //             self.log.error(`文件上传失败, ${status}, ${data.error}`, autoHideDelay = 5000)
+                //         } else {
+                //         }
+                //     },
+                //     function () { self.log.error('请求失败') },
+                //     function (loaded, total) {
+                //         progress.loaded = loaded;
+                //         progress.total = total;
+                //     }
+                // )
             }
         },
         uploadFile: function () {
@@ -199,18 +218,14 @@ new Vue({
         showFileModal: function (item) {
             this.fileEditor.name = item.name;
             var self = this;
-            self.fsClient.fsGet(self.getFSPath(item.name), false, {
-                onload_callback: function (status, data) {
-                    if (status == 200) {
-                        self.fileEditor.content = data;
-                    } else {
-                        self.log.error(`文件内容获取失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                    }
-                },
-                onerror_callback: function () {
-                    self.log.error('请求失败');
-                },
-            });
+            self.fsClient.cat(
+                self.getFSPath(item.name)
+            ).then(success => {
+                self.fileEditor.content = success.data;
+            }).catch(error => {
+                let msg = `${I18N.getfileContentFailed}, ${error.status}, ${error.data.error}`;
+                self.log.error(msg, 5000);
+            })
         },
         updateFile: function () {
             this.log.error('文件修改功能未实现');
@@ -238,33 +253,23 @@ new Vue({
             return `${displayUsed.toFixed(2)}${unit}/${displayTotal.toFixed(2)}${unit}`;
         },
         refreshSearchHistory: function () {
-            var self = this
-            this.fsClient.getSearchHistory({
-                onload_callback: function (status, data) {
-                    if (status != 200) {
-                        self.log.error('get search history failed');
-                    }
-                    self.searchHistory = data.search.history;
-                }
-            });
+            var self = this;
+            self.fsClient.findHistory().then(success => {
+                self.searchHistory = success.data.search.history;
+            }).catch(error => {
+                self.log.error(I18N.getSearchHistoryFailed);
+            })
         },
         search: function () {
             if (this.searchPartern == '') { return; }
             var self = this;
             self.showPardir = true;
             self.searchResult = [];
-            this.fsClient.searchPost(
-                this.searchPartern, {
-                onload_callback: function (status, data) {
-                    if (status == 200) {
-                        self.children = data.search.dirs;
-                    } else {
-                        self.log.error(`搜索失败, ${status}, ${data.error}`, autoHideDelay = 5000)
-                    }
-                },
-                onerror_callback: function () { self.log.error('请求失败') }
-            }
-            )
+            this.fsClient.find(this.searchPartern).then(success => {
+                self.children = success.data.search.dirs;
+            }).catch(error => {
+                self.log.error(`搜索失败, ${error.status}, ${error.data.error}`, 5000)
+            });
         },
         showQrcode: function (elemId, text) {
             // chinese is not support for qrcode.js now
@@ -273,7 +278,7 @@ new Vue({
             qrcode.makeCode(text);
         },
         refreshConnectionLink: function () {
-            this.showQrcode('connectionLink2', window.location.href)
+            this.showQrcode('connectionLink', window.location.href)
         },
         checkIsDirInvalid: function () {
             let invalidChar = this.newDir.name.search(/[!@#$%^&*():";'<>?,.~]/i);

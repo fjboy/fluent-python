@@ -60,68 +60,6 @@ class IndexView(views.MethodView):
         return flask.render_template('index.html', **get_resp_context())
 
 
-class ActionView(views.MethodView):
-
-    ACTION_MAP = {
-        'upload_file': 'upload_file',
-        'search': 'search',
-    }
-
-    def post(self):
-        action = flask.request.form.get('action')
-        if action:
-            action = json.loads(action)
-        else:
-            action = json.loads(
-                flask.request.get_data() or '{}').get('action')
-        if not action:
-            msg = 'action not found in body'
-            return get_json_response({'error': msg}, status=400)
-
-        name = action.get('name')
-        params = action.get('params')
-        LOG.debug('request action: %s, %s', name, params)
-        if name not in self.ACTION_MAP:
-            msg = 'action {} is not supported'.format(name)
-            return get_json_response({'error': msg}, status=400)
-        try:
-            resp_body = getattr(self, name)(params)
-            return resp_body
-        except Exception as e:
-            LOG.exception(e)
-            return get_json_response({'error': str(e)}, status=400)
-
-    def upload_file(self, params):
-        f = flask.request.files.get('file')
-        if not f:
-            return get_json_response({'error': 'file is null'})
-        FS_CONTROLLER.save(params.get('path_list'), f)
-        return {'result': 'file save success'}
-
-    def _check_params(self, params):
-        req_path = params.get('path') or params.get('path_list')
-
-        if not req_path:
-            raise ValueError('path is None')
-        if req_path and not FS_CONTROLLER.path_exists(req_path):
-            raise ValueError('path is not exists: %s' % req_path)
-
-    def search(self, params):
-        """
-        params: {'partern': '*.py'}
-        """
-        matched_pathes = []
-        if params.get('partern'):
-            matched_pathes = FS_CONTROLLER.search(params.get('partern'))
-        return {'dirs': matched_pathes}
-
-    def download(self, params):
-        """
-        params: {'path_list': [] , 'file': 'yy'}
-        """
-        pass
-
-
 class FaviconView(views.MethodView):
 
     def get(self):
@@ -133,10 +71,8 @@ class FSView(views.MethodView):
 
     def get(self, dir_path):
         req_path = dir_path.split('/')[1:]
-        all = flask.request.args.get('all', False)
         usage = FS_CONTROLLER.disk_usage()
-        if FS_CONTROLLER.is_file(req_path):
-            return self.send_file(req_path)
+        all = flask.request.args.get('all', False)
         try:
             children = FS_CONTROLLER.ls(req_path, all=all)
         except FileNotFoundError:
@@ -150,28 +86,6 @@ class FSView(views.MethodView):
                 }
             }
         }
-
-    def send_file(self, file_path):
-        abs_path = FS_CONTROLLER.get_abs_path(file_path)
-        LOG.debug('send file %s', abs_path)
-        try:
-            directory = os.path.dirname(abs_path)
-            return flask.send_from_directory(
-                directory, os.path.basename(abs_path), as_attachment=False)
-        except FileNotFoundError:
-            return get_json_response({'error': 'file not found'}, status=404)
-        except Exception as e:
-            LOG.exception(e)
-            return get_json_response({'error': 'file read failed'}, status=403)
-
-    def download_dir(self, dir_path):
-        abs_path = FS_CONTROLLER.get_abs_path(dir_path)
-        zip_name = fs.zip_path(abs_path)
-        if not os.path.exists(zip_name):
-            return get_json_response({'error': 'zip failed'}, status=400)
-
-        LOG.debug('download dir %s', dir_path)
-        return flask.send_from_directory('./', zip_name, as_attachment=False)
 
     def delete(self, dir_path):
         req_path = dir_path.split('/')[1:]
@@ -203,18 +117,16 @@ class FSView(views.MethodView):
         return {'result': 'rename success'}
 
 
-class DownloadView(views.MethodView):
+class FileView(views.MethodView):
 
     def get(self, dir_path):
         req_path = dir_path.split('/')[1:]
         abs_path = FS_CONTROLLER.get_abs_path(req_path)
         directory = os.path.dirname(abs_path)
         try:
-            LOG.debug('download: %s', req_path)
             if FS_CONTROLLER.is_file(req_path):
                 send_file = os.path.basename(abs_path)
             else:
-                LOG.debug('download dir : %s', abs_path)
                 zip_name = fs.zip_files(abs_path, zip_path=False)
                 send_file = zip_name
                 directory = '.'
@@ -229,6 +141,16 @@ class DownloadView(views.MethodView):
         except Exception as e:
             LOG.exception(e)
             return get_json_response({'error': 'Unkown Exception'}, status=500)
+
+    def post(self, dir_path):
+        LOG.debug('xxx form: %s', flask.request.form)
+        LOG.debug('xxx dir_path: %s', dir_path)
+        LOG.debug('xxx files: %s', flask.request.files)
+        f = flask.request.files.get('file')
+        if not f:
+            return get_json_response({'error': 'file is null'}, status=401)
+        FS_CONTROLLER.save(dir_path.split('/')[1:], f)
+        return {'files': {'result': 'file save success'}}
 
 
 class SearchView(views.MethodView):
