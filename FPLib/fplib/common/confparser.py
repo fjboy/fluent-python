@@ -1,5 +1,4 @@
 import collections
-from configparser import NoOptionError
 from six.moves import configparser
 
 
@@ -39,7 +38,7 @@ class ConfigParserWrapper(object):
     def get(self, option, section='DEFAULT'):
         options = self.options(section)
         if option not in options:
-            raise NoOptionError(option, section)
+            raise configparser.NoOptionError(option, section)
         return options.get(option)
 
     def set(self, option, value, section='DEFAULT'):

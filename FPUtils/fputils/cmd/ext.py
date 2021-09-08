@@ -15,9 +15,9 @@ def main():
         namespace='fputils.extensions',
         invoke_on_load=True,
     )
-    for name, ext in ext_manager.items():
+    for ext in ext_manager.extensions:
         sub_commands = ext.obj
-        LOG.debug('register sub commands for extension %s', name)
+        LOG.debug('register sub commands for extension %s', ext.name)
         cli_parser.register_clis(*sub_commands)
     try:
         cli_parser.call()
