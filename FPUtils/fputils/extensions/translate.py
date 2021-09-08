@@ -18,10 +18,10 @@ class GoogleTranslate(cp.CliBase):
     ARGUMENTS = [
         cp.Argument('infile', nargs='?', type=argparse.FileType(),
                     help='A text file be validated or printed'),
-        cp.Argument('-f', '--from-languate', default=DEFAULT_FROM,
+        cp.Argument('-f', '--from-language', default=DEFAULT_FROM,
                     help='From language, default is {}'.format(DEFAULT_FROM)),
-        cp.Argument('-t', '--to-languate', default=DEFAULT_TO,
-                    help='To language, default is {}'.format(DEFAULT_FROM)),
+        cp.Argument('-t', '--to-language', default=DEFAULT_TO,
+                    help='To language, default is {}'.format(DEFAULT_TO)),
         cp.Argument('-c', '--chars', type=int, default=500,
                     help='The num of chars each time. default is 500'),
     ]

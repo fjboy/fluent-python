@@ -12,7 +12,7 @@ LOG = log.getLogger(__name__)
 
 
 class ServerCleanUp(object):
-    
+
     def __init__(self):
         self.openstack = client.OpenstackClient.create_instance()
         self.percent = 0
@@ -20,7 +20,7 @@ class ServerCleanUp(object):
 
     def cleanup(self, name=None, workers=None):
         workers = workers or 1
-        servers = self._list(name=name)
+        servers = self._get_deletable_servers(name=name)
         self.percent = 0
 
         while len(servers) > 0:
@@ -31,19 +31,22 @@ class ServerCleanUp(object):
                     max_workers=workers) as executor:
                     for result in executor.map(self._delete, servers):
                         deleted += 1
-                        progress['computed'] = deleted
+                        progress['completed'] = deleted
 
-            servers = self._list(name=name)
+            servers = self._get_deletable_servers(name=name)
 
     def _delete(self, server):
-        return self.openstack.nova.servers.delete(server.id)
+        try:
+            self.openstack.nova.servers.delete(server.id)
+        except Exception as e:
+            LOG.error(e)
 
-    def _list(self, name=None):
+    def _get_deletable_servers(self, name=None):
         LOG.info('get servers')
         servers = []
         for s in self.openstack.nova.servers.list():
             if name and (name not in s.name):
-                LOG.info('skip to delete server: %s(%s)', s.name, s.id)
+                LOG.info('skip server: %s(%s)', s.name, s.id)
                 continue
             if getattr(S, 'OS-EXT-STS:task_state') == 'deleting':
                 continue
@@ -51,9 +54,9 @@ class ServerCleanUp(object):
         return servers
 
     @contextlib.contextmanager
-    def start_progress(self, total, interva=1):
+    def start_progress(self, total):
         self.percent = 0
-        progress = {'computed': 0, 'total': total}
+        progress = {'completed': 0, 'total': total}
         t = threading.Thread(target=self.print_progress, args=(progress,))
         t.setDaemon(True)
         t.start()
@@ -61,12 +64,11 @@ class ServerCleanUp(object):
         t.join()
 
     def print_progress(self, progress, interval=1):
-        
         while True:
-            percent = progress['completed'] * 100 / len(progress['total'])
+            percent = progress['completed'] * 100 / progress['total']
             if percent >= 100:
                 break
-            print(self.progress_format.format(percent, '▋' * percent),
+            print(self.progress_format.format(percent, '#' * percent),
                   end='\r')
             eventlet.sleep(interval)
         print()

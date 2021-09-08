@@ -16,5 +16,4 @@ class CleanUpServers(cliparser.CliBase):
                            help='Instance name, e.g. test-vm')]
 
     def __call__(self, args):
-        nova_lib.concurrent_delete_servers(workers=args.workers,
-                                           name=args.name)
+        nova_lib.ServerCleanUp().cleanup(name=args.name, workers=args.workers)
