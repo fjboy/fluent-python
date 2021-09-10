@@ -25,7 +25,7 @@ def main():
     if args.debug:
         log.set_default(level=logging.DEBUG)
 
-    # NOTE(zhengbenwu) For windows host, MIME type of js file be
+    # NOTE(zbw) For windows host, MIME type of js file be
     # 'text/plain', so add this type before start http server.
     mimetypes.add_type('application/javascript', '.js')
 

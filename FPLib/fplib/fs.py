@@ -4,9 +4,9 @@ import io
 import os
 import zipfile
 import contextlib
-import shutil
 
 from fplib.common import log
+from fplib.system import OS
 
 LOG = log.getLogger(__name__)
 
@@ -57,7 +57,8 @@ def directory_flat(top, set_index=True):
             remove(dir_path, recursive=True)
 
 
-def zip_files(path, name=None, zip_path=True, zip_root=True, verbose=False):
+def zip_files(path, name=None, zip_path=True, zip_root=True, save_path=None,
+              verbose=False):
     """Compress directory use zipfile libriary
 
     Args:
@@ -68,6 +69,7 @@ def zip_files(path, name=None, zip_path=True, zip_root=True, verbose=False):
                                    Defaults to False.
         zip_root (bool, optional): zip the dirname of path to zip file.
                                    Defaults to True.
+        save_path (string, optional): save the zip file to specified path.
         verbose (bool, optional): print files when zip files.
                                   Defaults to False.
     Raises:
@@ -96,7 +98,8 @@ def zip_files(path, name=None, zip_path=True, zip_root=True, verbose=False):
             for p in files + dirs:
                 zip_path_list.append(os.path.join(root, p))
 
-    with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zfile:
+    file_path = os.path.join(save_path, zip_name) if save_path else zip_name
+    with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zfile:
         for f in zip_path_list:
             if verbose:
                 print(f)
@@ -214,3 +217,7 @@ def open_backwards(file, chunk_size=None, **kwargs):
     """
     with open(file, mode='r') as fp:
         yield FileBackwardsReader(fp, chunk_size=chunk_size)
+
+
+def get_tmp_dir():
+    return os.getenv('TEMP') if OS.is_windows() else os.path.join('/', 'tmp')

@@ -122,17 +122,15 @@ class FileView(views.MethodView):
     def get(self, dir_path):
         req_path = dir_path.split('/')[1:]
         abs_path = FS_CONTROLLER.get_abs_path(req_path)
-        directory = os.path.dirname(abs_path)
         try:
             if FS_CONTROLLER.is_file(req_path):
+                directory = os.path.dirname(abs_path)
                 send_file = os.path.basename(abs_path)
             else:
-                zip_name = fs.zip_files(abs_path, zip_path=False)
-                send_file = zip_name
-                directory = '.'
-            #TODO
-            # make a tmp dir to save zip file instead of ./
-            LOG.debug('send %s %s', directory, send_file)
+                directory = fs.get_tmp_dir()
+                send_file = fs.zip_files(abs_path, zip_path=False,
+                                         save_path=directory)
+            LOG.debug('send file: %s %s', directory, send_file)
             return flask.send_from_directory(directory, send_file,
                                              as_attachment=False)
         except FileNotFoundError as e:
@@ -140,12 +138,9 @@ class FileView(views.MethodView):
             return get_json_response({'error': 'file not found'}, status=404)
         except Exception as e:
             LOG.exception(e)
-            return get_json_response({'error': 'Unkown Exception'}, status=500)
+            return get_json_response({'error': e}, status=500)
 
     def post(self, dir_path):
-        LOG.debug('xxx form: %s', flask.request.form)
-        LOG.debug('xxx dir_path: %s', dir_path)
-        LOG.debug('xxx files: %s', flask.request.files)
         f = flask.request.files.get('file')
         if not f:
             return get_json_response({'error': 'file is null'}, status=401)
