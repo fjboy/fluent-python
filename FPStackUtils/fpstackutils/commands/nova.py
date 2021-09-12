@@ -1,7 +1,7 @@
 from __future__ import print_function
 from fplib.common import cliparser
 from fplib.common import log
-from fpstackutils.openstack import nova as nova_lib
+from fpstackutils.openstack import utils
 
 
 LOG = log.getLogger(__name__)
@@ -16,4 +16,17 @@ class CleanUpServers(cliparser.CliBase):
                            help='Instance name, e.g. test-vm')]
 
     def __call__(self, args):
-        nova_lib.ServerCleanUp().cleanup(name=args.name, workers=args.workers)
+        openstack_utils = utils.OpenstaskUtils()
+        openstack_utils.cleanup_servers(name=args.name, workers=args.workers)
+
+
+class InitResources(cliparser.CliBase):
+    NAME = 'init-resources'
+    ARGUMENTS = [
+        cliparser.Argument('name_prefix', help='name prefix of resources'),
+        cliparser.Argument('-n', '--net-num', default=1,
+                           help='The num of network.')]
+
+    def __call__(self, args):
+        openstack_utils = utils.OpenstaskUtils()
+        openstack_utils.init_resources(args.name_prefix, net_num=args.net_num)

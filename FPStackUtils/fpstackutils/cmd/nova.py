@@ -9,7 +9,8 @@ LOG = log.getLogger(__name__)
 
 def main():
     cli_parser = cliparser.SubCliParser('Fluent Python Openstack Utils')
-    cli_parser.register_clis(nova.CleanUpServers)
+    cli_parser.register_clis(nova.CleanUpServers,
+                             nova.InitResources)
     try:
         cli_parser.call()
         return 0
