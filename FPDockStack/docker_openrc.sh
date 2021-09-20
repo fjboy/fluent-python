@@ -1,3 +1,7 @@
+[docker]
+build_file = Dockfile
+build_target = zbw/centos7
+build_yum_repo = centos7-163.repo
 
 # build with centos7
 export DOCKER_FILE=Dockerfile
