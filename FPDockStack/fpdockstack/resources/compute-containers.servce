@@ -1,0 +1,14 @@
+[Unit]
+Description=Openstack Compute Containers
+Before=network.target network.service
+After=network-pre.target
+PartOf=network.target
+
+[Service]
+Type=oneshot
+ExecStart=docker start nova-compute
+ExecStop=docker stop nova-compute
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
