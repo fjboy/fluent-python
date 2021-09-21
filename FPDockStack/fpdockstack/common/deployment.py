@@ -163,7 +163,7 @@ class DeploymentBase(object):
 
     def deploy(self, component):
         if self.driver.is_deployed(component):
-            LOG.info('[%s] deployed', component)
+            LOG.warning('[%s] deployed, skip', component)
             return
         LOG.info('[%s] start to deploy', component)
         self.driver.deploy(component)
