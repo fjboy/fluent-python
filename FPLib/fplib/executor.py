@@ -34,7 +34,7 @@ class LinuxExecutor(object):
         if stderr_file and isinstance(stderr_file, str):
             cmd.append('2>>{0}'.format(stderr_file))
 
-        if print_console:
+        if console:
             stdout, stderr = sys.stdout, sys.stderr
         else:
             stdout, stderr = subprocess.PIPE, subprocess.PIPE

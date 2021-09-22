@@ -41,6 +41,15 @@ class ListOption(Option):
         self._value = value.split(',')
 
 
+class MapOption(Option):
+
+    def set_value(self, value):
+        self._value = {}
+        for item in value.split():
+            option, value = item.split(':')
+            self._value[option] = value
+
+
 class OptGroup(object):
 
     def __init__(self, name):
