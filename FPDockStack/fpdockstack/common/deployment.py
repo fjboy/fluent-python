@@ -14,10 +14,6 @@ PROJECT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG = log.getLogger(__name__)
 
 
-def get_env(name, default=None):
-    return os.getenv(name, default)
-
-
 class DockerBuildException(Exception):
     pass
 
@@ -34,46 +30,66 @@ class DockerCmdDriver(object):
 
     @classmethod
     def build(cls, dockerfile, target):
-        cmd = ['docker', 'build', '-f', dockerfile, '-t', target, './']
+        cmd = ['build', '-f', dockerfile, '-t', target, './']
         LOG.debug('build cmd: %s', ' '.join(cmd))
-        stdout = None if VERBOSE else os.path.join(PROJECT_PATH, 'deploy.log')
-        result = LinuxExecutor.execute(cmd, console=VERBOSE,
-                                       stdout_file=stdout, stderr_file=stdout)
-        if result.status != 0:
-            LOG.error('stdout %s, stderr: %s', result.stdout, result.stderr)
-            raise DockerBuildException(
-                'build failed, see detail {}'.format(stdout))
+        return cls.execute(cmd)
 
     @classmethod
     def image_ls(cls):
-        cmd = ['docker', 'image', 'ls']
-        stdout = None if VERBOSE else os.path.join(PROJECT_PATH, 'deploy.log')
-        result = LinuxExecutor.execute(cmd, console=VERBOSE,
-                                       stdout_file=stdout, stderr_file=stdout)
-        if result.status != 0:
-            LOG.error('stdout %s, stderr: %s', result.stdout, result.stderr)
-            raise DockerCmdException(
-                'list image failed, see detail {}'.format(stdout))
+        return cls.execute(['image', 'ls'])
 
     @classmethod
-    def image_inspect(cls, image):
-        cmd = ['docker', 'image', 'inspect', image]
-        stdout = None if VERBOSE else os.path.join(PROJECT_PATH, 'deploy.log')
-        result = LinuxExecutor.execute(cmd, console=VERBOSE,
-                                       stdout_file=stdout, stderr_file=stdout)
-        if result.status != 0:
-            LOG.error('stdout %s, stderr: %s', result.stdout, result.stderr)
-            raise DockerCmdException(
-                'list image failed, see detail {}'.format(stdout))
+    def image_rm(cls, image):
+        return cls.execute(['image', 'rm', image])
+
+    @classmethod
+    def image_inspect(cls, image, console=None):
+        return cls.execute(['image', 'inspect', image], console=console)
 
     @classmethod
     def image_exists(cls, image):
-        cmd = ['docker', 'image', 'inspect', image]
-        stdout = os.path.join(PROJECT_PATH, 'deploy.log')
-        result = LinuxExecutor.execute(cmd, stdout_file=stdout,
-                                        stderr_file=stdout)
-        return result.status == 0
+        try:
+            result = cls.image_inspect(image, console=False)
+            return result.status == 0
+        except DockerCmdException:
+            return False
 
+    @classmethod
+    def rm(cls, name, force=False):
+        cmd = ['rm', name]
+        if force:
+            cmd.append('--force')
+        return cls.execute(cmd)
+
+    @classmethod
+    def stop(cls, name):
+        return cls.execute(['stop', name])
+
+    @classmethod
+    def run(cls, image, name, volumes=None, privileged=False, network=None):
+        cmd = ['run', '-itd', '--name={}'.format(name)]
+        if privileged:
+            cmd.append('--privileged=true')
+        if network:
+            cmd.append('--network={}'.format(network)),
+        for volume in volumes or []:
+            cmd.extend(['-v', volume])
+        cmd.append(image)
+        return cls.execute(cmd)
+
+    @classmethod
+    def execute(cls, cmd, console=None):
+        stdout_file = None if VERBOSE \
+            else os.path.join(PROJECT_PATH, 'deploy.log')
+        cmd = ['docker'] + cmd
+        result = LinuxExecutor.execute(
+            cmd, stdout_file=stdout_file, stderr_file=stdout_file,
+            console=console if console is not None else VERBOSE)
+        if result.status != 0:
+            LOG.error('stdout %s, stderr: %s', result.stdout, result.stderr)
+            raise DockerCmdException(
+                'run docker cmd failed, see detail {}'.format(stdout_file))
+        return result
 
 
 class DeployDriverBase(metaclass=abc.ABCMeta):
@@ -105,12 +121,27 @@ class DeployDriverBase(metaclass=abc.ABCMeta):
 
 class DockerDeployDriver(DeployDriverBase):
 
-
     def deploy(self, component):
         if not self.is_enable():
             LOG.error('make sure docker service is started')
             return
         self.build(component)
+
+    @staticmethod
+    def get_image(component):
+        return '{}/{}'.format(CONF.docker.build_target, component)
+
+    @staticmethod
+    def get_volumes(component):
+        option = '{}_volumes'.format(component.replace('-', '_'))
+        try:
+            volumes =  getattr(CONF.deploy, option)
+        except:
+            volumes = None
+        LOG.info('xxx option: %s', option)
+        LOG.info('xxx volumes: %s', volumes)
+        LOG.info('xxx mariadb volumes: %s', CONF.deploy.mariadb_volumes)
+        return volumes
 
     def build(self, component):
         dockerfile = CONF.docker.build_file
@@ -126,7 +157,7 @@ class DockerDeployDriver(DeployDriverBase):
             DockerCmdDriver.build(dockerfile, target)
             LOG.info('[%s] build image success, target=%s', component, target)
         finally:
-            LOG.info('[%s] clean up', component)
+            LOG.info('[%s] clean up tmp files', component)
             self.cleanup_file(CONF.docker.build_yum_repo)
 
     @classmethod
@@ -152,6 +183,23 @@ class DockerDeployDriver(DeployDriverBase):
         target = '{}/{}'.format(CONF.docker.build_target, component)
         return DockerCmdDriver.image_exists(target)
 
+    def start(self, component):
+        volumes = self.get_volumes(component)
+        DockerCmdDriver.run(self.get_image(component), component,
+                            volumes=volumes,
+                            privileged=True, network='host')
+
+    def stop(self, component):
+        DockerCmdDriver.stop(component)
+
+    def cleanup(self, component):
+        LOG.info('[%s] delete contrainer', component)
+        try:
+            DockerCmdDriver.rm(component)
+        except:
+            pass
+        LOG.info('[%s] delete image', component)
+        DockerCmdDriver.image_rm(self.get_image(component))
 
 class DeploymentBase(object):
     
@@ -161,9 +209,38 @@ class DeploymentBase(object):
         global VERBOSE
         VERBOSE = verbose
 
+    def get_hosts_config(self):
+        component_host = CONF.deploy.component_host
+        hosts_mapping = {}
+        for component, hosts in CONF.deploy.components.items():
+            if component in component_host:
+                hosts_mapping[component_host[component]] = hosts.split(',')
+        return hosts_mapping
+
     def deploy(self, component):
         if self.driver.is_deployed(component):
             LOG.warning('[%s] deployed, skip', component)
             return
         LOG.info('[%s] start to deploy', component)
         self.driver.deploy(component)
+
+    def start(self, component):
+        if not self.driver.is_deployed(component):
+            LOG.error('[%s] is not depolyed', component)
+            return
+        LOG.info('[%s] starting', component)
+        self.driver.start(component)
+
+    def stop(self, component):
+        if not self.driver.is_deployed(component):
+            LOG.error('[%s] is not depolyed', component)
+            return
+        LOG.info('[%s] stoping', component)
+        self.driver.stop(component)
+
+    def cleanup(self,  component):
+        if not self.driver.is_deployed(component):
+            LOG.warning('[%s] is not depolyed', component)
+            return
+        LOG.info('[%s] cleanup', component)
+        self.driver.cleanup(component)

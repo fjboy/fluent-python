@@ -4,50 +4,65 @@ from six.moves import configparser
 class Option(object):
 
     def __init__(self, name, default=None):
-        super(Option, self).__init__()
         self.name = name
-        self.default = default
+        self._default = self.parse_value(default)
         self._value = None
 
+    def parse_value(self, value):
+        return value
+
     def set_value(self, value):
-        self._value = value
+        self._value = self.parse_value(value)
 
     def __str__(self):
         return str(self.value)
 
     @property
     def value(self):
-        if self._value is not None:
-            return self._value
-        else:
-            return self.default
+        return self._default if self._value is None else self._value
 
 
 class IntOption(Option):
 
-    def set_value(self, value):
-        self._value = int(value)
+    def parse_value(self, value):
+        return int(value)
 
 
 class BooleanOption(Option):
 
-    def set_value(self, value):
-        self._value = (value.upper() == 'TRUE')
+    def parse_value(self, value):
+        return value.upper() == 'TRUE'
 
 
 class ListOption(Option):
 
-    def set_value(self, value):
-        self._value = value.split(',')
+    def parse_value(self, value):
+        """ list values
+        e.g.
+        list_option = value1
+                      value2
+        """
+        if isinstance(value, list):
+            return value
+        else:
+            return value.split()
 
 
 class MapOption(Option):
 
     def set_value(self, value):
+        """ map values
+        e.g.
+        list_option = key1:value1
+                      key2:value2
+        """
         self._value = {}
-        for item in value.split():
-            option, value = item.split(':')
-            self._value[option] = value
+        if isinstance(value, dict):
+            self._value = value
+        else:
+            for item in value.split():
+                option, value = item.split(':')
+                self._value[option] = value
 
 
 class OptGroup(object):
@@ -61,7 +76,6 @@ class OptGroup(object):
         self._options[opt.name] = opt
 
     def __getattr__(self, name):
-
         if name in self._options:
             return self._options[name].value
         else:
