@@ -64,8 +64,6 @@ class StartCmd(cliparser.CliBase):
             manager.start(component)
 
 
-
-
 class StopCmd(cliparser.CliBase):
     NAME = 'stop'
     ARGUMENTS = [

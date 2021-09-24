@@ -1,10 +1,15 @@
 import abc
 import os
 import shutil
+import docker
+import requests
+import json
+
+from docker import client
+from docker import errors
 
 from fplib.common import log
 from fplib.executor import LinuxExecutor
-
 from common import config
 
 CONF = config.CONF
@@ -121,6 +126,10 @@ class DeployDriverBase(metaclass=abc.ABCMeta):
 
 class DockerDeployDriver(DeployDriverBase):
 
+    def __init__(self, verbose=False):
+        super().__init__(verbose=verbose)
+        self.docker = client.DockerClient()
+
     def deploy(self, component):
         if not self.is_enable():
             LOG.error('make sure docker service is started')
@@ -138,24 +147,30 @@ class DockerDeployDriver(DeployDriverBase):
             volumes =  getattr(CONF.deploy, option)
         except:
             volumes = None
-        LOG.info('xxx option: %s', option)
-        LOG.info('xxx volumes: %s', volumes)
-        LOG.info('xxx mariadb volumes: %s', CONF.deploy.mariadb_volumes)
         return volumes
 
     def build(self, component):
         dockerfile = CONF.docker.build_file
         yum_repo = os.path.join(PROJECT_PATH, 'resources',
                                 CONF.docker.build_yum_repo)
-        target = '{}/{}'.format(CONF.docker.build_target, component)
+        tag = self.get_image(component)
         workspace = os.path.join(self.components_path, component)
         LOG.info('[%s] prepare resources', component)
         shutil.copy(yum_repo, workspace)
-        os.chdir(workspace)
-        LOG.info('[%s] build image start', component)
+        LOG.info('[%s] building image', component)
         try:
-            DockerCmdDriver.build(dockerfile, target)
-            LOG.info('[%s] build image success, target=%s', component, target)
+            cli = docker.APIClient()
+            for line in cli.build(path=workspace, dockerfile=dockerfile,
+                                  tag=tag, rm=True):
+                stream = json.loads(line).get('stream')
+                if VERBOSE:
+                    print(stream, end='')
+                elif stream and stream.startswith('Step'):
+                    LOG.info('[%s] %s', component, stream)
+            LOG.info('[%s] build image success, tag=%s', component, tag)
+        except Exception as e:
+            LOG.error('[%s] build failed', component)
+            LOG.exception(e)
         finally:
             LOG.info('[%s] clean up tmp files', component)
             self.cleanup_file(CONF.docker.build_yum_repo)
@@ -170,36 +185,55 @@ class DockerDeployDriver(DeployDriverBase):
 
     def is_enable(self):
         LOG.debug('enable %s', self.enable)
-        if self.enable is None:
-            try:
-                DockerCmdDriver.image_ls()
-                self.enable = True
-            except DockerCmdException as e:
-                self.enable = False
-                LOG.error(e)
-        return self.enable
+        try:
+            self.docker.version()
+            return True
+        except requests.exceptions.ConnectionError:
+            return False
 
     def is_deployed(self, component):
-        target = '{}/{}'.format(CONF.docker.build_target, component)
-        return DockerCmdDriver.image_exists(target)
+        try:
+            self.docker.images.get(self.get_image(component))
+            return True
+        except errors.ImageNotFound:
+            return False
 
     def start(self, component):
-        volumes = self.get_volumes(component)
-        DockerCmdDriver.run(self.get_image(component), component,
-                            volumes=volumes,
-                            privileged=True, network='host')
+        volumes = {}
+        for volume in self.get_volumes(component):
+            k, v = volume.split(':')
+            volumes[v] = k
+        LOG.info(volumes)
+        try:
+            container = self.docker.containers.get(component)
+            if container.status != 'running':
+                container.start()
+            else:
+                LOG.debug('[%s] status is %s', component, container.status)
+        except errors.ContainerError:
+            self.docker.containers.run(self.get_image(component),
+                                    name=component,
+                                    tty=True, detach=True, privileged=True,
+                                    network='host', 
+                                    volumes=volumes)
 
     def stop(self, component):
-        DockerCmdDriver.stop(component)
+        container = self.docker.containers.get(component)
+        container.stop()
 
     def cleanup(self, component):
         LOG.info('[%s] delete contrainer', component)
         try:
-            DockerCmdDriver.rm(component)
-        except:
+            container = self.docker.containers.get(component)
+            container.remove()
+        except errors.NotFound:
             pass
-        LOG.info('[%s] delete image', component)
-        DockerCmdDriver.image_rm(self.get_image(component))
+        try:
+            self.docker.images.remove(self.get_image(component))
+            LOG.info('[%s] delete image', component)
+        except errors.ImageNotFound:
+            pass
+
 
 class DeploymentBase(object):
     

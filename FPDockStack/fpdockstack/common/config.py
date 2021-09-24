@@ -26,7 +26,6 @@ nova-server:nova-server
 """
 DEFAULT_MARIADB_VOLUMES = """
 /etc/hosts:/etc/hosts
-/sys/fs/cgroup:/sys/fs/cgroup
 /var/log/mariadb:/var/log/mariadb
 """
 DEFAULT_KEYSTONE_VOLUMES = """

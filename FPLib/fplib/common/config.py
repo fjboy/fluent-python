@@ -50,20 +50,20 @@ class ListOption(Option):
 
 class MapOption(Option):
 
-    def set_value(self, value):
+    def parse_value(self, value):
         """ map values
         e.g.
         list_option = key1:value1
                       key2:value2
         """
-        self._value = {}
+        tmp_value = {}
         if isinstance(value, dict):
-            self._value = value
+            tmp_value = value
         else:
             for item in value.split():
                 option, value = item.split(':')
-                self._value[option] = value
-
+                tmp_value[option] = value
+        return tmp_value
 
 class OptGroup(object):
 
