@@ -7,12 +7,17 @@ class Option(object):
         self.name = name
         self._default = self.parse_value(default)
         self._value = None
+        self._cli = False
 
     def parse_value(self, value):
         return value
 
-    def set_value(self, value):
+    def set_value(self, value, cli=False):
+        if self._cli:
+            return
         self._value = self.parse_value(value)
+        if cli:
+            self._cli = cli
 
     def __str__(self):
         return str(self.value)
@@ -31,6 +36,8 @@ class IntOption(Option):
 class BooleanOption(Option):
 
     def parse_value(self, value):
+        if isinstance(value, bool):
+            return value
         return value.upper() == 'TRUE'
 
 
@@ -84,8 +91,8 @@ class OptGroup(object):
     def options(self):
         return self._options.keys()
 
-    def set_option_value(self, opt_name, value):
-        self._options[opt_name].set_value(value)
+    def set_option_value(self, opt_name, value, cli=False):
+        self._options[opt_name].set_value(value, cli=cli)
 
     def get_options(self):
         return self._options.values()
@@ -124,6 +131,8 @@ class ConfigOpts(object):
             return getattr(self._groups[configparser.DEFAULTSECT], name)
 
     def register_opts(self, options, group=configparser.DEFAULTSECT):
+        if group not in self._groups:
+            self._groups[group] = OptGroup(group)
         for option in options:
             self.register_opt(option, group=group)
 
@@ -152,5 +161,12 @@ class ConfigOpts(object):
                     opt_name, parser.get(group_name, opt_name))
         self._conf_files.append(conf_file)
 
+    def set_cli(self, option, value, group=configparser.DEFAULTSECT):
+        opt_group = getattr(self, group)
+        opt_group.set_option_value(option, value, cli=True)
+
     def conf_files(self):
         return self._conf_files
+
+
+CONF = ConfigOpts()

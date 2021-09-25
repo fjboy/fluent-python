@@ -1,11 +1,8 @@
 from fplib.common import config
 
 
-docker_opts = [
-    config.Option('build_file', default='Dockerfile'),
-    config.Option('build_target', default='zbw/centos7'),
-    config.Option('build_yum_repo', default='centos7-163.repo'),
-]
+CONF = config.CONF
+
 
 DEFAULT_COMPONENTS = """
 mariadb:localhost
@@ -13,6 +10,43 @@ memcached:localhost
 rabbitmq:localhost
 keystone:localhost
 """
+
+default_opts = [
+    config.Option('verbose', default=False),
+]
+
+deploy_opts = [
+    config.MapOption('components', default=DEFAULT_COMPONENTS),
+    # config.MapOption('component_host', default=DEFAULT_COMPONENT_HOST),
+    # config.ListOption('mariadb_volumes', default=DEFAULT_MARIADB_VOLUMES),
+    # config.ListOption('keystone_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
+    # config.ListOption('neutron_server_volumes', default=DEFAULT_NEUTRON_SERVER_VOLUMES),
+    # config.ListOption('neutron_dhcp_agent_volumes',
+    #                   default=DEFAULT_NEUTRON_DHCP_AGENT_VOLUMES),
+    # config.ListOption('neutron_ovs_volumes',
+    #                   default=DEFAULT_NEUTRON_OVS_AGENT_VOLUMES),
+    # config.ListOption('glance_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
+    # config.ListOption('cinder_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
+    # config.ListOption('nova_api_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
+    # config.ListOption('nova_compute_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
+]
+
+docker_opts = [
+    config.Option('build_file', default='Dockerfile'),
+    config.Option('build_target', default='zbw/centos7'),
+    config.Option('build_yum_repo', default='centos7-163.repo'),
+]
+
+openstack_opts = [
+    config.Option('memcached_servers', default='memcached-server1:11211'),
+]
+
+
+CONF.register_opts(default_opts)
+CONF.register_opts(deploy_opts, group='deploy')
+CONF.register_opts(docker_opts, group='docker')
+CONF.register_opts(openstack_opts, group='openstack')
+
 
 DEFAULT_COMPONENT_HOST = """
 mariadb:mariadb-server
@@ -71,31 +105,3 @@ DEFAULT_CINDER_VOLUMES = """
 /var/log/keystone:/var/log/keystone
 /var/log/httpd:/var/log/httpd
 """
-
-deploy_opts = [
-    config.MapOption('components', default=DEFAULT_COMPONENTS),
-    config.MapOption('component_host', default=DEFAULT_COMPONENT_HOST),
-    config.Option('build_target', default='zbw/centos7'),
-    config.Option('build_yum_repo', default='centos7-163.repo'),
-    config.ListOption('mariadb_volumes', default=DEFAULT_MARIADB_VOLUMES),
-    config.ListOption('keystone_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
-    config.ListOption('neutron_server_volumes', default=DEFAULT_NEUTRON_SERVER_VOLUMES),
-    config.ListOption('neutron_dhcp_agent_volumes',
-                      default=DEFAULT_NEUTRON_DHCP_AGENT_VOLUMES),
-    config.ListOption('neutron_ovs_volumes',
-                      default=DEFAULT_NEUTRON_OVS_AGENT_VOLUMES),
-    config.ListOption('glance_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
-    config.ListOption('cinder_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
-    config.ListOption('nova_api_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
-    config.ListOption('nova_compute_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
-]
-
-openstack_opts = [
-    config.Option('memcached_servers', default='memcached-server1:11211'),
-]
-
-
-CONF = config.ConfigOpts()
-CONF.register_opts(docker_opts, group='docker')
-CONF.register_opts(deploy_opts, group='deploy')
-CONF.register_opts(openstack_opts, group='openstack')
