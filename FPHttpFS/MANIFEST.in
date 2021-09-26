@@ -1,1 +1,0 @@
-recursive-include fphttpfs *.py *.rst *.scss *.js *.html *.conf *.jpg *.gif *.png *.css
