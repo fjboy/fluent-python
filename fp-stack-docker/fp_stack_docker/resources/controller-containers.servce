@@ -1,0 +1,25 @@
+[Unit]
+Description=Openstack Controller Containers
+Before=network.target network.service
+After=network-pre.target
+PartOf=network.target
+
+[Service]
+Type=oneshot
+ExecStart=docker start rabbitmq memcached mariadb \
+       keystone \
+       glance \
+       cinder \
+       neutron-server \
+       nova-api nova-conductor nova-scheduler
+
+ExecStop=docker stop rabbitmq memcached mariadb \
+       keystone \
+       glance \
+       cinder \
+       neutron-server \
+       nova-api nova-conductor nova-scheduler
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
