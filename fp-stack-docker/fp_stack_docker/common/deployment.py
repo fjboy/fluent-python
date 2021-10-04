@@ -43,7 +43,7 @@ class DeployDriverBase(metaclass=abc.ABCMeta):
 
 
 class DockerDeployDriver(DeployDriverBase):
-    COMPONENTS = components.list_components()
+    COMPONENTS = components.list_all()
 
     def __init__(self, verbose=False):
         super().__init__(verbose=verbose)
@@ -130,7 +130,7 @@ class DockerDeployDriver(DeployDriverBase):
     def cleanup(self, component, force=False):
         dc = self.get_component(component)
         if dc.running() and not force:
-            LOG.error('[%s] is running, stop it first')
+            LOG.error('[%s] is running, stop it first', component)
             return
         LOG.info('[%s] deleting', component)
         dc.remove(also_image=True)
@@ -195,3 +195,5 @@ class DeploymentBase(object):
         status = installed and self.driver.get_status(component) or None
         return installed, status
 
+    def config(self):
+        pass

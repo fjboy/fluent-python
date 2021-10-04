@@ -9,28 +9,30 @@ if './' not in sys.path:
     sys.path.append('./')
 
 from fp_stack_docker.common import config
+from fp_stack_docker.common.docker import components
 from fp_stack_docker.common import deployment
 
 CONF = config.CONF
 LOG = log.getLogger(__name__)
 
 
-COMPONENTS = [
-    'mariadb', 'rabbitmq', 'memcached',
-    'keystone', 'glance', 'cinder',
-    'neutron-server', 'neutron-dhcp-agent', 'neutron-ovs-agent',
-    'nova-api', 'nova-scheduler', 'nova-conductor', 'nova-compute'
-]
-
-
 class InstallCmd(cliparser.CliBase):
     NAME = 'install'
     ARGUMENTS = [
         cliparser.Argument('component', nargs='?', help='component',
-                           choices=COMPONENTS),
+                           choices=[
+                               c.NAME for c in components.list_all()]),
+        cliparser.Argument('--config', action='store_true',
+                           help='config component'),
     ]
 
     def __call__(self, args):
+        if args.config:
+            self.config(args)
+        else:
+            self.install(args)
+
+    def install(self, args):
         manager = deployment.DeploymentBase()
         if args.component:
             manager.deploy(args.component)
@@ -42,18 +44,31 @@ class InstallCmd(cliparser.CliBase):
                 continue
             manager.deploy(component)
 
+    def config(self, args):
+        component = components.get_component(args.component)
+        if args.component:
+            component.config()
+            return
+        for component, hosts in CONF.deploy.components.items():
+            host_list = hosts.split(',')
+            if (not socket.gethostname() in host_list) and \
+               (not 'localhost' in host_list):
+                continue
+            component.config(component)
+
 
 class StartCmd(cliparser.CliBase):
     NAME = 'start'
     ARGUMENTS = [
         cliparser.Argument('component', nargs='?', help='component',
-                           choices=COMPONENTS),
+                           choices=[
+                               c.NAME for c in components.list_all()]),
     ]
 
     def __call__(self, args):
-        manager = deployment.DeploymentBase()
+        manager = components.get_component(args.component)
         if args.component:
-            manager.start(args.component)
+            manager.start()
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')
@@ -67,13 +82,13 @@ class StopCmd(cliparser.CliBase):
     NAME = 'stop'
     ARGUMENTS = [
         cliparser.Argument('component', nargs='?', help='component',
-                           choices=COMPONENTS),
+                           choices=[c.NAME for c in components.list_all()]),
     ]
 
     def __call__(self, args):
-        manager = deployment.DeploymentBase()
+        manager = components.get_component(args.component)
         if args.component:
-            manager.stop(args.component)
+            manager.stop()
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')
@@ -87,15 +102,15 @@ class CleanUPCmd(cliparser.CliBase):
     NAME = 'cleanup'
     ARGUMENTS = [
         cliparser.Argument('component', nargs='?', help='component',
-                           choices=COMPONENTS),
-        cliparser.Argument('-f', '--foce', action='store_true',
+                           choices=[c.NAME for c in components.list_all()]),
+        cliparser.Argument('-f', '--force', action='store_true',
                            help='force to cleanup'),
     ]
 
     def __call__(self, args):
         manager = deployment.DeploymentBase()
         if args.component:
-            manager.cleanup(args.component)
+            manager.cleanup(args.component, force=args.force)
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')

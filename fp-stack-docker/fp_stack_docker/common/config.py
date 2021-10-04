@@ -1,7 +1,7 @@
-from fp_lib.common import config
+from fp_lib.common import cfg
 
 
-CONF = config.CONF
+CONF = cfg.CONF
 
 
 DEFAULT_COMPONENTS = """
@@ -11,12 +11,30 @@ rabbitmq:localhost
 keystone:localhost
 """
 
+DEFAULT_DB_IDENTITY = """
+keystone:keystone123
+neutron:neutron123
+nova:nova123
+nova-api:nova123
+cinder:cinder123
+glance:glance123
+"""
+DEFAULT_KEYSTONE_IDENTITY = """
+keystone:keystone123
+neutron:neutron123
+nova:nova123
+nova-api:nova123
+cinder:cinder123
+glance:glance123
+"""
+
+
 default_opts = [
-    config.Option('verbose', default=False),
+    cfg.Option('verbose', default=False),
 ]
 
 deploy_opts = [
-    config.MapOption('components', default=DEFAULT_COMPONENTS),
+    cfg.MapOption('components', default=DEFAULT_COMPONENTS),
     # config.MapOption('component_host', default=DEFAULT_COMPONENT_HOST),
     # config.ListOption('mariadb_volumes', default=DEFAULT_MARIADB_VOLUMES),
     # config.ListOption('keystone_volumes', default=DEFAULT_KEYSTONE_VOLUMES),
@@ -32,13 +50,15 @@ deploy_opts = [
 ]
 
 docker_opts = [
-    config.Option('build_file', default='Dockerfile'),
-    config.Option('build_target', default='zbw/centos7'),
-    config.Option('build_yum_repo', default='centos7-163.repo'),
+    cfg.Option('build_file', default='Dockerfile'),
+    cfg.Option('build_target', default='zbw/centos7'),
+    cfg.Option('build_yum_repo', default='centos7-163.repo'),
 ]
 
 openstack_opts = [
-    config.Option('memcached_servers', default='memcached-server1:11211'),
+    cfg.Option('memcached_servers', default='memcached-server1:11211'),
+    cfg.MapOption('db_identity', default=DEFAULT_DB_IDENTITY),
+    cfg.MapOption('auth_identity', default=DEFAULT_KEYSTONE_IDENTITY),
 ]
 
 PORT="11211"
@@ -48,11 +68,11 @@ CACHESIZE="20480"
 
 
 memcached_opts = [
-    config.IntOption('port', default=11211),
-    config.Option('user', default='memcached'),
-    config.IntOption('maxconn', default=20000),
-    config.IntOption('maxcache', default=20480),
-    config.IntOption('address'),
+    cfg.IntOption('port', default=11211),
+    cfg.Option('user', default='memcached'),
+    cfg.IntOption('maxconn', default=20000),
+    cfg.IntOption('maxcache', default=20480),
+    cfg.IntOption('address'),
 ]
 
 

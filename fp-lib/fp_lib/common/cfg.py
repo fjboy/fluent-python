@@ -5,7 +5,7 @@ class Option(object):
 
     def __init__(self, name, default=None):
         self.name = name
-        self._default = self.parse_value(default)
+        self._default = None if default is None else self.parse_value(default)
         self._value = None
         self._cli = False
 
@@ -15,7 +15,12 @@ class Option(object):
     def set_value(self, value, cli=False):
         if self._cli:
             return
-        self._value = self.parse_value(value)
+        if value is not None:
+            try:
+                self._value = self.parse_value(value)
+            except Exception as e:
+                msg = 'set value failed, option={}, value={}, error={}'
+                raise Exception(msg.format(self.name, value), error=e)
         if cli:
             self._cli = cli
 

@@ -12,7 +12,11 @@ memcached = Dockerfile_centos7_mariadb
 Docker build issues:
 
 1. issue1  cgroups: cannot find cgroup mount destination: unknown
-   solution: run cmd `mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd`
+   solution, run cmd:
+   ```
+   mkdir /sys/fs/cgroup/systemd
+   mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/system
+   ```
 
 ```
 
