@@ -1,6 +1,9 @@
+from logging import error
 import os
 import sys
 import socket
+
+from docker import errors
 
 from fp_lib.common import cliparser
 from fp_lib.common import log
@@ -24,6 +27,8 @@ class InstallCmd(cliparser.CliBase):
                                c.NAME for c in components.list_all()]),
         cliparser.Argument('--config', action='store_true',
                            help='config component'),
+        cliparser.Argument('--force', action='store_true',
+                           help='force to install component'),
     ]
 
     def __call__(self, args):
@@ -35,7 +40,7 @@ class InstallCmd(cliparser.CliBase):
     def install(self, args):
         manager = deployment.DeploymentBase()
         if args.component:
-            manager.deploy(args.component)
+            manager.deploy(args.component, force=args.force)
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')
@@ -66,9 +71,9 @@ class StartCmd(cliparser.CliBase):
     ]
 
     def __call__(self, args):
-        manager = components.get_component(args.component)
+        manager = deployment.DeploymentBase()
         if args.component:
-            manager.start()
+            manager.start(args.component)
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')
@@ -86,16 +91,19 @@ class StopCmd(cliparser.CliBase):
     ]
 
     def __call__(self, args):
-        manager = components.get_component(args.component)
+        manager = deployment.DeploymentBase()
         if args.component:
-            manager.stop()
+            manager.stop(args.component)
             return
         for component, hosts in CONF.deploy.components.items():
             host_list = hosts.split(',')
             if (not socket.gethostname() in host_list) and \
                (not 'localhost' in host_list):
                 continue
-            manager.stop(component)
+            try:
+                manager.stop(component)
+            except errors.NotFound:
+                pass
 
 
 class CleanUPCmd(cliparser.CliBase):

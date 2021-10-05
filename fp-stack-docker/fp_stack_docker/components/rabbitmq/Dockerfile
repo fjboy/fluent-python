@@ -8,7 +8,7 @@ RUN yum -y install rabbitmq-server \
     && sed -i 's|^Wants=.*|Wants=network.target|g' /usr/lib/systemd/system/rabbitmq-server.service \
     && yum clean all
 RUN mkdir -p /etc/systemd/system/rabbitmq-server.service.d \
-    && /etc/rabbitmq/rabbitmq.config /etc/rabbitmq/rabbitmq.config.backup
+    && cp /etc/rabbitmq/rabbitmq.config /etc/rabbitmq/rabbitmq.config.backup
 COPY limit.conf /etc/systemd/system/rabbitmq-server.service.d
 COPY rabbitmq.config /etc/rabbitmq/rabbitmq.config
 

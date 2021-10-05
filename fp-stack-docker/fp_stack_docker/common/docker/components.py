@@ -1,14 +1,14 @@
-from logging import addLevelName
 import docker
 import json
 import socket
-
+import os
+import re
 from docker import client
 from docker import errors
 
 from fp_lib.common import log
 from common import config
-from common import exceptions
+from common.lib import openstackapi
 
 CONF = config.CONF
 
@@ -69,6 +69,7 @@ class DockerComponent(object):
 
     def run(self):
         cli = client.DockerClient()
+        LOG.debug('run container with volumes: %s', self.VOLUMES)
         cli.containers.run(self.tag, name=self.NAME,
                            tty=True, detach=True, privileged=True,
                            network=self.NETWORK, volumes=self.VOLUMES,
@@ -124,9 +125,13 @@ class DockerComponent(object):
 
     def config(self):
         LOG.info('[%s] config', self.NAME)
+        self.update_hosts(self.NAME)
         if not self.running():
             LOG.error('%s is not running, can not config', self.NAME)
             return
+        LOG.info('[%s] register service', self.NAME)
+        self.register_service()
+        self.register_user()
         self._config()
 
     def _config(self):
@@ -135,19 +140,114 @@ class DockerComponent(object):
     def get_db_password(self, db):
         return CONF.openstack.db_identity.get(db, '')
 
-    def get_auth_password(self, component):
-        return CONF.openstack.auth_identity.get(component, '')
+    def get_auth_password(self, user):
+        return CONF.openstack.auth_identity.get(user, '')
 
     def get_component_host(self, component):
         return CONF.deploy.components.get(component, '')
 
-    def run_cmd_in_container(self, cmd, container=None):
+    def run_cmd_in_container(self, cmd, user=None, container=None):
         if not container:
             container = self.docker.containers.get(self.NAME)
-        LOG.debug('RUN CMD: %s', cmd)
-        output = container.exec_run(cmd)
+        if user:
+            run_cmd = ['su', '-s', '/bin/sh', '-c', ' '.join(cmd), user]
+        else:
+            run_cmd = cmd
+        LOG.debug('RUN CMD: %s', run_cmd)
+        output = container.exec_run(run_cmd)
         LOG.debug('RESULT : %s', output)
         return output
+
+    def register_service(self):
+        """register service
+        """
+        pass
+
+    def register_user(self):
+        """register user
+        """
+        pass
+
+    def get_openstack_client(self):
+        return openstackapi.OpenstackClient(
+            'http://keystone-server:35357/v3',
+            username='admin', project_name='admin',
+            user_domain_name='Default', project_domain_name='Default',
+            password=CONF.openstack.admin_password)
+
+    def update_hosts(self, component):
+        LOG.info('update hosts for %s', component)
+        component_host = self.get_component_host(component)
+        if not component_host:
+            return
+        component_ip = self.get_component_ip(component)
+        with open('/etc/hosts', 'r') as f:
+            lines = f.readlines()
+
+        for line in lines:
+            matched = re.match(
+                r' *{} +{}'.format(component_ip, component_host), line)
+            if matched:
+                return
+        else:
+            with open('/etc/hosts', 'a+') as f:
+                f.write('{} {}\n'.format(component_ip, component_host))
+
+    def get_component_host(self, component):
+        hosts = {
+            'keystone': 'keystone-server',
+            'nova-api': 'nova-server',
+            'glance-api': 'glance-server',
+            'cinder-api': 'cinder-server',
+            'neutron-server': 'neutron-server',
+            'nova-api': 'nova-server',
+        }
+        return hosts.get(component)
+
+    def get_component_ip(self, component):
+        component_ip = None
+        for c, hosts in CONF.deploy.components.items():
+            if c != component:
+                continue
+            host_list = hosts.split(',')
+            if len(host_list) == 1:
+                component_ip = socket.gethostbyname(host_list[0])
+                break
+            component_ip = self.get_componet_vip(component)
+            break
+        if not component_ip:
+            raise Exception('vip for {} is not config'.format(component))
+        LOG.debug('%s ip is %s', component, component_ip)
+        return component_ip
+
+    def update_config(self, file, configs, container):
+        for section, options in configs.items():
+            for option, value in options.items():
+                cmd = ['openstack-config', '--set', file, 
+                       section, option, value]
+                result = self.run_cmd_in_container(cmd, container=container)
+                if not result:
+                    continue
+                raise Exception('update {} failed, error={}'.format(file,
+                                                                     result))
+
+    def get_openstack_rabbitmq_url(self):
+        return 'rabbit://{}:{}@rabbitmq-server'.format(
+            CONF.openstack.rabbitmq_user, CONF.openstack.rabbitmq_password,
+        )
+
+    def get_keystone_authtoken_config(self, username):
+        return {'auth_uri': 'http://keystone-server:5000',
+                'auth_url': 'http://keystone-server:35357',
+                'memcached_servers': CONF.openstack.memcached_servers,
+                'username': username,
+                'password': self.get_auth_password(username),
+                'region_name': 'RegionOne',
+                'auth_type': 'password',
+                'project_name': 'service',
+                'project_domain_name': 'Default',
+                'user_domain_name': 'Default',
+            }
 
 
 class Mariadb(DockerComponent):
@@ -176,13 +276,13 @@ class Mariadb(DockerComponent):
                 self.init_database('cinder')
 
     def init_database(self, database):
-        LOG.info('[%s] init databse %s', self.NAME, database)
+        LOG.info('[%s] init database %s', self.NAME, database)
         container = self.docker.containers.get(self.NAME)
-        result = self.run_cmd_in_container(self.SQL_CREATE_DB.format(database),
+        result = self.run_sql_in_container(self.SQL_CREATE_DB.format(database),
                                            container=container)
         if result:
             raise Exception('create database failed {}'.format(result))
-        result = self.run_cmd_in_container(self.SQL_CREATE_DB.format(database),
+        result = self.run_sql_in_container(self.SQL_CREATE_DB.format(database),
                                            container=container)
         if result:
             raise Exception('create database failed {}'.format(result))
@@ -234,6 +334,21 @@ class Rabbitmq(DockerComponent):
         container.exec_run(['echo', 'RABBITMQ_NODE_IP_ADDRESS={}'.format(ip),
                             '>>', '/etc/rabbitmq/rabbitmq-env.conf'])
 
+        self.run_rabbimqctl(['add_user', CONF.openstack.rabbitmq_user,
+                             CONF.openstack.rabbitmq_password],
+                            container)
+        self.run_rabbimqctl(
+            ['set_permissions', '-p', '/', CONF.openstack.rabbitmq_user,
+             '.*', '.*', '.*'],
+            container)
+        self.run_rabbimqctl(
+            ['set_user_tags', CONF.openstack.rabbitmq_user, 'administrator'],
+            container)
+
+    def run_rabbimqctl(self, cmd, container):
+        run_cmd = ['rabbitmqctl'] + cmd
+        self.run_cmd_in_container(run_cmd, container=container)
+
 
 class Keystone(DockerComponent):
     NAME = 'keystone'
@@ -241,65 +356,299 @@ class Keystone(DockerComponent):
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/keystone': '/var/log/keystone',
                '/var/log/httpd': '/var/log/httpd'}
+    CONNECTION = 'mysql+pymysql://keystone:{}@{}/keystone'
 
-    def _config(self):
-        container = self.docker.containers.get(self.NAME)
+    def get_config_map(self):
         pwd = self.get_db_password(self.NAME)
         host = self.get_component_host(self.NAME)
-        cmd = [
-            'openstack-config', '--set', '/etc/keystone/keystone.conf',
-            'database',  'connection',
-            'mysql+pymysql://keystone:{}@{}/keystone'.format(pwd, host)
-        ]
-        result = self.run_cmd_in_container(cmd, container=container)
-        if result:
-            raise Exception(
-                'update keystone.conf failed, errror=%s'.format(result))
+        return {
+            '/etc/keystone/keystone.conf': {
+                'database': {
+                    'connection': self.CONNECTION.format(pwd, host)
+                },
+                'token': {
+                      'expiration': '7000',
+                      'provider': 'fernet',
+                      'allow_expire': 'true'
+                }
+            }
+        }
 
-        result = self.run_cmd_in_container(cmd, container=container)
-        if result:
-            raise Exception(
-                'update keystone.conf failed, errror=%s'.format(result))
+    def _config(self):
+        self.make_admin_openrc()
+        os.chmod('/var/log/keystone', 777)
+        container = self.docker.containers.get(self.NAME)
+        for file, configs in self.get_config_map().items():
+            self.update_config(file, configs, container)
 
         LOG.info('[%s] db sync', self.NAME)
         result = self.run_cmd_in_container(['keystone-manage', 'db_sync'],
+                                           user='keystone',
                                            container=container)
         if result:
-            raise Exception('db sync failed, errror={}'.format(result))
+            raise Exception('db sync failed, error={}'.format(result))
 
         LOG.info('[%s] create endpoints', self.NAME)
         cmd = ['keystone-manage', 'bootstrap', '--bootstrap-password',
-             self.get_auth_password(self.NAME),
-             '--bootstrap-admin-url', 'http://keystone-server:35357/v3/',
-             '--bootstrap-internal-url', 'http://keystone-server:35357/v3/',
-             '--bootstrap-public-url', 'http://kestone-server:5000/v3/',
-             '--bootstrap-region-id', 'RegionOne']
+               CONF.openstack.admin_password,
+               '--bootstrap-admin-url', 'http://keystone-server:35357/v3/',
+               '--bootstrap-internal-url', 'http://keystone-server:35357/v3/',
+               '--bootstrap-public-url', 'http://kestone-server:5000/v3/',
+               '--bootstrap-region-id', 'RegionOne']
         result = self.run_cmd_in_container(cmd, container=container)
         if result:
-            raise Exception(
-                'create endpoints failed, errror={}'.format(result))
+            raise Exception('run bootstrap failed, error={}'.format(result))
+
+    def make_admin_openrc(self):
+        LOG.info('[%s] make admin openrc', self.NAME)
+        openrc_lines = [
+            'export OS_USERNAME=admin\n',
+            'export OS_PASSWORD={}\n'.format(CONF.openstack.admin_password),
+            'export OS_PROJECT_NAME=admin\n',
+            'export OS_USER_DOMAIN_NAME=Default\n',
+            'export OS_PROJECT_DOMAIN_NAME=Default\n',
+            'export OS_AUTH_URL=http://keystone-server:35357/v3\n',
+            'export OS_IDENTITY_API_VERSION=3\n',
+            'export OS_IMAGE_API_VERSION=2\n',
+            'export OS_VOLUME_API_VERSION=2\n',
+            'export OS_REGION_NAME=RegionOne\n',
+        ]
+        file_path = os.path.join(os.path.expanduser('~'), 'admin_openrc.sh') 
+        with open(file_path, 'w') as f:
+            f.writelines(openrc_lines)
 
 
-class Glance(DockerComponent):
-    NAME = 'glance'
+class GlanceApi(DockerComponent):
+    NAME = 'glance-api'
+    VOLUMES = {'/etc/hosts': '/etc/hosts',
+               '/sys/fs/cgroup': '/sys/fs/cgroup',
+               '/var/log/glance': '/var/log/glance',
+               '/var/lib/glance/images': '/var/lib/glance/images'}
+    CONNECTION = 'mysql+pymysql://glance:{}@{}/glance'
+
+    def register_user(self):
+        LOG.info('[%s] create user', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_user('glance', self.get_auth_password('glance'),
+                        'service', role='admin')
+
+    def register_service(self):
+        LOG.info('[%s] create endpoints', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_service_endpoints('glance', 'image', 'RegionOne',
+                                     'http://glance-server:9292',
+                                     'http://glance-server:9292',
+                                     'http://glance-server:9292',
+                                     description='OpenStack Image service')
+
+    def _config(self):
+        container = self.docker.containers.get(self.NAME)
+        self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
+        for file, configs in self.get_config_map().items():
+            self.update_config(file, configs, container)
+
+        LOG.info('[%s] db sync', self.NAME)
+        result = self.run_cmd_in_container(['glance-manage', 'db_sync'],
+                                           user='glance',
+                                           container=container)
+        if result and (b'synced successfully' not in result and
+                       b'Database is up to date' not in result):
+            raise Exception('db sync failed, error={}'.format(result))
+
+    def get_config_map(self):
+        pwd = self.get_db_password('glance')
+        if not pwd:
+            raise Exception('glance db password not set')
+        # docker exec -it glance openstack-config --set ${GLANCE_CONF_API} DEFAULT bind_host ${GLANCE_HOST}
+        # docker exec -it glance openstack-config --set ${GLANCE_CONF_API} DEFAULT registry_host ${GLANCE_HOST}
+        return {
+            '/etc/glance/glance-api.conf': {
+                'DEFAULT': {
+                    'debug': 'True'
+                },
+                'keystone_authtoken':
+                    self.get_keystone_authtoken_config('glance'),
+                'cinder': {
+                    'os_region_name': 'RegionOne'
+                },
+                'glance_store': {
+                    'stores': 'file,http',
+                    'default_store': 'file',
+                },
+                'database': {
+                    'connection': self.CONNECTION.format(pwd, Mariadb.NAME)
+                },
+            }
+        }
+
+
+class GlanceRegistry(GlanceApi):
+    NAME = 'glance-registry'
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/glance': '/var/log/glance',
                '/var/lib/glance/images': '/var/lib/glance/images'}
 
+    def _config(self):
+        container = self.docker.containers.get(self.NAME)
+        for file, configs in self.get_config_map().items():
+            self.update_config(file, configs, container)
 
-class Cinder(DockerComponent):
-    NAME = 'cinder'
+        LOG.info('[%s] db sync', self.NAME)
+        result = self.run_cmd_in_container(['glance-manage', 'db_sync'],
+                                           user='glance',
+                                           container=container)
+        if result:
+            raise Exception('db sync failed, error={}'.format(result))
+
+    def get_config_map(self):
+        pwd = self.get_db_password(self.NAME)
+        return {
+            '/etc/glance/glance-registry.conf': {
+                'DEFAULT': {
+                    'debug': 'True',
+                    'workers': '4'
+                },
+                'keystone_authtoken': {
+                    'auth_uri': 'http://keystone-server:5000',
+                    'auth_url': 'http://keystone-server:35357',
+                    'memcached_servers': CONF.openstack.memcached_servers,
+                    'username': 'glance',
+                    'password': self.get_auth_password('glance'),
+                    'region_name': 'RegionOne'
+                },
+                'database': {
+                    'connection': self.CONNECTION.format(pwd, Mariadb.NAME)
+                },
+
+            }
+        }
+
+
+class CinderApi(DockerComponent):
+    NAME = 'cinder-api'
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/cinder': '/var/log/cinder'}
 
+    def register_user(self):
+        cli = self.get_openstack_client()
+        LOG.info('[%s] create user', self.NAME)
+        cli.create_user('cinder', self.get_auth_password('cinder'),
+                        'service', role='admin')
+        
+    def register_service(self):
+        LOG.info('[%s] create endpoints', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_service_endpoints(
+            'cinderv2', 'volumev2', 'RegionOne',
+            'http://cinder-server:8776/v2/%(project_id)s',
+            'http://cinder-server:8776/v2/%(project_id)s',
+            'http://cinder-server:8776/v2/%(project_id)s',
+            description='OpenStack Block Storage')
+
+        cli.create_service_endpoints(
+            'cinderv3', 'volumev3', 'RegionOne',
+            'http://cinder-server:8776/v3/%(project_id)s',
+            'http://cinder-server:8776/v3/%(project_id)s',
+            'http://cinder-server:8776/v3/%(project_id)s',
+            description='OpenStack Block Storage')
+
+    def get_config_map(self):
+        return {
+            
+        }
 
 class NeutronServer(DockerComponent):
     NAME = 'neutron-server'
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/neutron': '/var/log/neutron'}
+    CONNECTION = 'mysql+pymysql://neutron:{}@{}/neutron'
+
+    def register_user(self):
+        cli = self.get_openstack_client()
+        LOG.info('[%s] create user', self.NAME)
+        cli.create_user('neutron', self.get_auth_password('neutron'),
+                        'service', role='admin')
+
+    def register_service(self):
+        LOG.info('[%s] create endpoints', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_service_endpoints(
+            'neutron', 'network', 'RegionOne',
+            'http://neutron-server:9696',
+            'http://neutron-server:9696',
+            'http://neutron-server:9696',
+            description='OpenStack Networking')
+
+    def _config(self):
+        container = self.docker.containers.get(self.NAME)
+        for file, configs in self.get_config_map().items():
+            self.update_config(file, configs, container)
+
+        self.run_cmd_in_container([
+            'ln', '-s', '/etc/neutron/plugins/ml2/ml2_conf.ini',
+            '/etc/neutron/plugin.ini'],
+            container=container)
+
+        LOG.info('[%s] db sync', self.NAME)
+        result = self.run_cmd_in_container([
+            'neutron-db-manage',
+            '--config-file', '/etc/neutron/neutron.conf',
+            '--config-file', '/etc/neutron/plugins/ml2/ml2_conf.ini',
+            'upgrade', 'head',],
+            user='neutron', 
+            container=container)
+        if result and b'OK' not in result:
+            raise Exception('db sync failed, error={}'.format(result))
+
+    def get_config_map(self):
+        pwd = self.get_db_password('neutron')
+        return {
+            '/etc/neutron/neutron.conf': {
+                'DEFAULT': {
+                    'debug': 'True',
+                    'transport_url': self.get_openstack_rabbitmq_url(),
+                    'core_plugin': 'ml2',
+                },
+                'keystone_authtoken': 
+                    self.get_keystone_authtoken_config('neutron'),
+                'database': {
+                    'connection': self.CONNECTION.format(pwd, 'mariadb-server')
+                },
+                'nova': {
+                    'auth_url': 'http://keytone-server:35357',
+                    'region_name': 'RegionOne',
+                    'project_name': 'service',
+                    'username': 'nova',
+                    'password': self.get_auth_password('nova'),
+                },
+            },
+            '/etc/neutron/plugins/ml2/ml2_conf.ini': {
+                'ml2': {
+                    'type_drivers': 'vxlan,flat',
+                    'tenant_network_types': 'vxlan',
+                    'mechanism_drivers': 'openvswitch',
+                    'extension_drivers': 'port_security,qos',
+                },
+                'ml2_type_vlan': {
+                    'network_vlan_ranges': 'physnet1:858:876',
+                },
+                'ml2_type_vxlan': {
+                    'vni_ranges': '1:100000',
+                    'tenant_network_types': 'vxlan',
+                    'mechanism_drivers': 'openvswitch',
+                    'extension_drivers': 'port_security,qos',
+                },
+                'securitygroup': {
+                    'firewall_driver': 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
+                    'tenant_network_types': 'vxlan',
+                    'enable_security_group': 'true',
+                    'enable_ipset': 'true',
+                },
+            }
+        }
 
 
 class NeutronDhcpAgent(DockerComponent):
@@ -323,6 +672,21 @@ class NovaApi(DockerComponent):
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/nova': '/var/log/nova'}
+
+    def register_user(self):
+        LOG.info('[%s] create user', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_user('nova', self.get_auth_password('nova'),
+                        'service', role='admin')
+
+    def register_service(self):
+        LOG.info('[%s] create endpoints', self.NAME)
+        cli = self.get_openstack_client()
+        cli.create_service_endpoints('nova', 'compute', 'RegionOne',
+                                     'http://nova-server:8774/v2.1',
+                                     'http://nova-server:8774/v2.1',
+                                     'http://nova-server:8774/v2.1',
+                                     description='OpenStack Compute')
 
 
 class NovaScheduler(DockerComponent):
@@ -351,7 +715,8 @@ def list_all():
     return [
         Mariadb, Memcached, Rabbitmq,
         Keystone,
-        Glance, Cinder,
+        GlanceApi, GlanceRegistry,
+        CinderApi,
         NeutronServer, NeutronDhcpAgent, NeutronOVSAgent,
         NovaApi, NovaConductor, NovaScheduler, NovaCompute
     ]

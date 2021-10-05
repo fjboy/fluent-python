@@ -8,7 +8,7 @@ from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
 import glanceclient
 
-from fplib.common import log
+from fp_lib.common import log
 
 LOG = log.getLogger(__name__)
 

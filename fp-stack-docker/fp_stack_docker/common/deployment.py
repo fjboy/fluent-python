@@ -1,12 +1,12 @@
 import abc
 import os
+import socket
 import shutil
 import requests
 
 from docker import client
 from docker import errors
 from fp_lib.common import log
-
 from common import config
 from common import exceptions
 from common.docker import components
@@ -111,6 +111,10 @@ class DockerDeployDriver(DeployDriverBase):
         dc = self.get_component(component)
         return dc.exists()
 
+    def is_running(self, component):
+        dc = self.get_component(component)
+        return dc.running()
+
     def start(self, component):
         dc = self.get_component(component)
         try:
@@ -154,12 +158,66 @@ class DeploymentBase(object):
                 hosts_mapping[component_host[component]] = hosts.split(',')
         return hosts_mapping
 
-    def deploy(self, component):
-        if self.driver.is_deployed(component):
+    def deploy(self, component, force=False):
+        if not force and self.driver.is_deployed(component):
             LOG.warning('[%s] deployed, skip', component)
             return
+
         LOG.info('[%s] start to deploy', component)
         self.driver.deploy(component)
+
+    def update_hosts(self, component):
+        LOG.info('update hosts for %s', component)
+        component_host = self.get_component_host(component)
+        if not component_host:
+            return
+        update_content = None
+        component_ip = self.get_component_ip(component)
+        with open('/etc/hosts', 'r') as f:
+            lines = f.readlines()
+
+        for line in lines:
+            if line.strip().startswith(component_ip):
+                return
+        else:
+            update_content = '{} {}\n'.format(component_ip, component_host)
+
+        if not update_content:
+            return
+        with open('/etc/hosts', 'a+') as f:
+            f.write(update_content)
+
+    def get_component_host(self, component):
+        hosts = {
+            'keystone': 'keystone-server',
+            'nova-api': 'nova-server',
+            'glance-api': 'glance-server',
+            'cinder-api': 'cinder-server',
+            'neutron-server': 'neutron-server',
+            'nova-api': 'nova-server',
+        }
+        return hosts.get(component)
+
+    def get_component_ip(self, component):
+        component_ip = None
+        for c, hosts in CONF.deploy.components.items():
+            if c != component:
+                continue
+            host_list = hosts.split(',')
+            if len(host_list) == 1:
+                component_ip = socket.gethostbyname(host_list[0])
+                break
+            component_ip = self.get_componet_vip(component)
+            break
+        if not component_ip:
+            raise Exception('vip for {} is not config'.format(component))
+        LOG.debug('%s ip is %s', component, component_ip)
+        return component_ip
+
+    def get_componet_vip(self, component):
+        if not CONF.deploy.vip_mpping:
+            raise Exception('vip_mapping is not set')
+        return CONF.deploy.vip_mapping.get(component)
 
     def start(self, component):
         if not self.driver.is_deployed(component):
@@ -171,6 +229,9 @@ class DeploymentBase(object):
     def stop(self, component):
         if not self.driver.is_deployed(component):
             LOG.error('[%s] is not depolyed', component)
+            return
+        if not self.driver.is_running(component):
+            LOG.info('[%-20s] not running', component)
             return
         LOG.info('[%s] stoping', component)
         self.driver.stop(component)

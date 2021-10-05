@@ -26,17 +26,6 @@ docker run -itd \
 # sync db
 docker exec -it keystone su -s /bin/sh -c "keystone-manage db_sync" keystone
 
-# init bootstrap
-docker exec -it keystone keystone-manage bootstrap \
-    --bootstrap-password ${ADMIN_PASSWORD} \
-    --bootstrap-admin-url http://${KEYSTONE_HOST}:35357/v3/ \
-    --bootstrap-internal-url http://${KEYSTONE_HOST}:35357/v3/ \
-    --bootstrap-public-url http://${KEYSTONE_HOST}:5000/v3/ \
-    --bootstrap-region-id RegionOne
-
-docker restart keystone
-
-
 openstack project create --domain default --description "Service Project" service
 openstack region create DefaultOp
 
