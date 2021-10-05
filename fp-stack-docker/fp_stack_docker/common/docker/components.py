@@ -3,6 +3,7 @@ import json
 import socket
 import os
 import re
+import yaml
 from docker import client
 from docker import errors
 
@@ -25,6 +26,7 @@ class DockerComponent(object):
     def __init__(self):
         self.tag = '{}/{}'.format(CONF.docker.build_target, self.NAME)
         self.docker = docker.DockerClient()
+        self._customs_config = None
 
     @property
     def image_name(self):
@@ -132,10 +134,9 @@ class DockerComponent(object):
         LOG.info('[%s] register service', self.NAME)
         self.register_service()
         self.register_user()
-        self._config()
 
-    def _config(self):
-        LOG.info('[%s] no config to do', self.NAME)
+        self.update_component_config()
+        self.update_customs_config()
 
     def get_db_password(self, db):
         return CONF.openstack.db_identity.get(db, '')
@@ -220,7 +221,21 @@ class DockerComponent(object):
         LOG.debug('%s ip is %s', component, component_ip)
         return component_ip
 
-    def update_config(self, file, configs, container):
+    def update_customs_config(self):
+        container = self.docker.containers.get(self.NAME)
+        LOG.info('[%s] update constoms config', self.NAME)
+        constom_config = self.get_constom(self.NAME)
+        for file, configs in constom_config.items():
+            self._update_config(file, configs, container)
+
+    def update_component_config(self):
+        LOG.info('[%s] update component config', self.NAME)
+        container = self.docker.containers.get(self.NAME)
+        config_map = self.get_config_map()
+        for file, configs in config_map.items():
+            self._update_config(file, configs, container)
+
+    def _update_config(self, file, configs, container):
         for section, options in configs.items():
             for option, value in options.items():
                 cmd = ['openstack-config', '--set', file, 
@@ -249,6 +264,18 @@ class DockerComponent(object):
                 'user_domain_name': 'Default',
             }
 
+    def get_constom(self, component):
+        if not self._customs_config:
+            with open(CONF.openstack.customs_config) as f:
+                self._customs_config = yaml.load(f.read(),
+                                                 Loader=yaml.FullLoader)
+        LOG.debug('%s constom config: %s',
+                  component, self._customs_config.get(component))
+        return self._customs_config.get(component, {})
+
+    def get_config_map(self):
+        return {}
+
 
 class Mariadb(DockerComponent):
     NAME = 'mariadb'
@@ -261,7 +288,7 @@ class Mariadb(DockerComponent):
     SQL_GRANT_ALL = "GRANT ALL PRIVILEGES ON {}.* TO '{}'@'%' IDENTIFIED " \
                     "BY '{}' with grant option;"
 
-    def _config(self):
+    def update_component_config(self):
         for component, _ in CONF.deploy.components.items():
             if component == 'keystone':
                 self.init_database('keystone')
@@ -312,12 +339,11 @@ class Memcached(DockerComponent):
         if not address:
             addr = socket.getaddrinfo(socket.gethostname(), 'http')
             address = addr[0][4][0]
-        return [
-            '-p', str(CONF.memcached.port),
-            '-u', CONF.memcached.user,
-            '-m', str(CONF.memcached.maxcache),
-            '-c', str(CONF.memcached.maxconn),
-            '-l', address]
+        return ['-p', str(CONF.memcached.port),
+                '-u', CONF.memcached.user,
+                '-m', str(CONF.memcached.maxcache),
+                '-c', str(CONF.memcached.maxconn),
+                '-l', address]
 
 
 class Rabbitmq(DockerComponent):
@@ -325,7 +351,7 @@ class Rabbitmq(DockerComponent):
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/var/log/mariadb': '/var/log/mariadb'}
 
-    def _config(self):
+    def update_component_config(self):
         container = self.docker.containers.get(self.NAME)
         ip = CONF.rabbitmq.rabbitmq_node_ip
         if not ip:
@@ -334,18 +360,19 @@ class Rabbitmq(DockerComponent):
         container.exec_run(['echo', 'RABBITMQ_NODE_IP_ADDRESS={}'.format(ip),
                             '>>', '/etc/rabbitmq/rabbitmq-env.conf'])
 
-        self.run_rabbimqctl(['add_user', CONF.openstack.rabbitmq_user,
+    def update_customs_config(self):
+        container = self.docker.containers.get(self.NAME)
+        self._run_rabbimqctl(['add_user', CONF.openstack.rabbitmq_user,
                              CONF.openstack.rabbitmq_password],
-                            container)
-        self.run_rabbimqctl(
-            ['set_permissions', '-p', '/', CONF.openstack.rabbitmq_user,
-             '.*', '.*', '.*'],
-            container)
-        self.run_rabbimqctl(
+                             container)
+        self._run_rabbimqctl(['set_permissions', '-p', '/',
+                              CONF.openstack.rabbitmq_user, '.*', '.*', '.*'],
+                             container)
+        self._run_rabbimqctl(
             ['set_user_tags', CONF.openstack.rabbitmq_user, 'administrator'],
             container)
 
-    def run_rabbimqctl(self, cmd, container):
+    def _run_rabbimqctl(self, cmd, container):
         run_cmd = ['rabbitmqctl'] + cmd
         self.run_cmd_in_container(run_cmd, container=container)
 
@@ -360,31 +387,23 @@ class Keystone(DockerComponent):
 
     def get_config_map(self):
         pwd = self.get_db_password(self.NAME)
-        host = self.get_component_host(self.NAME)
         return {
             '/etc/keystone/keystone.conf': {
                 'database': {
-                    'connection': self.CONNECTION.format(pwd, host)
-                },
-                'token': {
-                      'expiration': '7000',
-                      'provider': 'fernet',
-                      'allow_expire': 'true'
+                    'connection': self.CONNECTION.format(pwd, 'mariadb-server')
                 }
             }
         }
 
-    def _config(self):
+    def config(self):
+        super(Keystone, self).config()
+
         self.make_admin_openrc()
         os.chmod('/var/log/keystone', 777)
-        container = self.docker.containers.get(self.NAME)
-        for file, configs in self.get_config_map().items():
-            self.update_config(file, configs, container)
 
         LOG.info('[%s] db sync', self.NAME)
         result = self.run_cmd_in_container(['keystone-manage', 'db_sync'],
-                                           user='keystone',
-                                           container=container)
+                                           user='keystone')
         if result:
             raise Exception('db sync failed, error={}'.format(result))
 
@@ -395,7 +414,7 @@ class Keystone(DockerComponent):
                '--bootstrap-internal-url', 'http://keystone-server:35357/v3/',
                '--bootstrap-public-url', 'http://kestone-server:5000/v3/',
                '--bootstrap-region-id', 'RegionOne']
-        result = self.run_cmd_in_container(cmd, container=container)
+        result = self.run_cmd_in_container(cmd)
         if result:
             raise Exception('run bootstrap failed, error={}'.format(result))
 
@@ -441,16 +460,15 @@ class GlanceApi(DockerComponent):
                                      'http://glance-server:9292',
                                      description='OpenStack Image service')
 
-    def _config(self):
-        container = self.docker.containers.get(self.NAME)
+    def config(self):
         self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
-        for file, configs in self.get_config_map().items():
-            self.update_config(file, configs, container)
+
+        super(GlanceApi, self).config()
 
         LOG.info('[%s] db sync', self.NAME)
         result = self.run_cmd_in_container(['glance-manage', 'db_sync'],
                                            user='glance',
-                                           container=container)
+                                           )
         if result and (b'synced successfully' not in result and
                        b'Database is up to date' not in result):
             raise Exception('db sync failed, error={}'.format(result))
@@ -463,17 +481,10 @@ class GlanceApi(DockerComponent):
         # docker exec -it glance openstack-config --set ${GLANCE_CONF_API} DEFAULT registry_host ${GLANCE_HOST}
         return {
             '/etc/glance/glance-api.conf': {
-                'DEFAULT': {
-                    'debug': 'True'
-                },
                 'keystone_authtoken':
                     self.get_keystone_authtoken_config('glance'),
                 'cinder': {
                     'os_region_name': 'RegionOne'
-                },
-                'glance_store': {
-                    'stores': 'file,http',
-                    'default_store': 'file',
                 },
                 'database': {
                     'connection': self.CONNECTION.format(pwd, Mariadb.NAME)
@@ -489,15 +500,13 @@ class GlanceRegistry(GlanceApi):
                '/var/log/glance': '/var/log/glance',
                '/var/lib/glance/images': '/var/lib/glance/images'}
 
-    def _config(self):
-        container = self.docker.containers.get(self.NAME)
-        for file, configs in self.get_config_map().items():
-            self.update_config(file, configs, container)
-
+    def config(self):
+        self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
+        super(CinderApi, self).config()
         LOG.info('[%s] db sync', self.NAME)
         result = self.run_cmd_in_container(['glance-manage', 'db_sync'],
                                            user='glance',
-                                           container=container)
+                                           )
         if result:
             raise Exception('db sync failed, error={}'.format(result))
 
@@ -505,18 +514,8 @@ class GlanceRegistry(GlanceApi):
         pwd = self.get_db_password(self.NAME)
         return {
             '/etc/glance/glance-registry.conf': {
-                'DEFAULT': {
-                    'debug': 'True',
-                    'workers': '4'
-                },
-                'keystone_authtoken': {
-                    'auth_uri': 'http://keystone-server:5000',
-                    'auth_url': 'http://keystone-server:35357',
-                    'memcached_servers': CONF.openstack.memcached_servers,
-                    'username': 'glance',
-                    'password': self.get_auth_password('glance'),
-                    'region_name': 'RegionOne'
-                },
+                'keystone_authtoken': 
+                    self.get_keystone_authtoken_config('glance'),
                 'database': {
                     'connection': self.CONNECTION.format(pwd, Mariadb.NAME)
                 },
@@ -555,9 +554,7 @@ class CinderApi(DockerComponent):
             description='OpenStack Block Storage')
 
     def get_config_map(self):
-        return {
-            
-        }
+        return {}
 
 class NeutronServer(DockerComponent):
     NAME = 'neutron-server'
@@ -582,15 +579,13 @@ class NeutronServer(DockerComponent):
             'http://neutron-server:9696',
             description='OpenStack Networking')
 
-    def _config(self):
-        container = self.docker.containers.get(self.NAME)
-        for file, configs in self.get_config_map().items():
-            self.update_config(file, configs, container)
+    def config(self):
+        self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
+        super(NeutronServer, self).config()
 
         self.run_cmd_in_container([
             'ln', '-s', '/etc/neutron/plugins/ml2/ml2_conf.ini',
-            '/etc/neutron/plugin.ini'],
-            container=container)
+            '/etc/neutron/plugin.ini'])
 
         LOG.info('[%s] db sync', self.NAME)
         result = self.run_cmd_in_container([
@@ -598,8 +593,7 @@ class NeutronServer(DockerComponent):
             '--config-file', '/etc/neutron/neutron.conf',
             '--config-file', '/etc/neutron/plugins/ml2/ml2_conf.ini',
             'upgrade', 'head',],
-            user='neutron', 
-            container=container)
+            user='neutron')
         if result and b'OK' not in result:
             raise Exception('db sync failed, error={}'.format(result))
 
@@ -608,9 +602,7 @@ class NeutronServer(DockerComponent):
         return {
             '/etc/neutron/neutron.conf': {
                 'DEFAULT': {
-                    'debug': 'True',
                     'transport_url': self.get_openstack_rabbitmq_url(),
-                    'core_plugin': 'ml2',
                 },
                 'keystone_authtoken': 
                     self.get_keystone_authtoken_config('neutron'),
@@ -625,29 +617,6 @@ class NeutronServer(DockerComponent):
                     'password': self.get_auth_password('nova'),
                 },
             },
-            '/etc/neutron/plugins/ml2/ml2_conf.ini': {
-                'ml2': {
-                    'type_drivers': 'vxlan,flat',
-                    'tenant_network_types': 'vxlan',
-                    'mechanism_drivers': 'openvswitch',
-                    'extension_drivers': 'port_security,qos',
-                },
-                'ml2_type_vlan': {
-                    'network_vlan_ranges': 'physnet1:858:876',
-                },
-                'ml2_type_vxlan': {
-                    'vni_ranges': '1:100000',
-                    'tenant_network_types': 'vxlan',
-                    'mechanism_drivers': 'openvswitch',
-                    'extension_drivers': 'port_security,qos',
-                },
-                'securitygroup': {
-                    'firewall_driver': 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
-                    'tenant_network_types': 'vxlan',
-                    'enable_security_group': 'true',
-                    'enable_ipset': 'true',
-                },
-            }
         }
 
 
@@ -687,6 +656,10 @@ class NovaApi(DockerComponent):
                                      'http://nova-server:8774/v2.1',
                                      'http://nova-server:8774/v2.1',
                                      description='OpenStack Compute')
+
+    def config(self):
+        self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
+        super(Keystone, self).config()
 
 
 class NovaScheduler(DockerComponent):

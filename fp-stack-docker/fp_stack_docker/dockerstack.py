@@ -154,19 +154,24 @@ def main():
     cli_parser = cliparser.SubCliParser('Docker Openstack Deploy Utils')
     cli_parser.register_clis(InstallCmd, StartCmd, StopCmd, CleanUPCmd,
                              StatusCmd)
-    
-    
+
     CONF.load(os.path.join(os.path.dirname(__file__), 'docker_stack.cfg'))
     cli_args = cli_parser.parse_args()
     if hasattr(cli_args, 'verbose') and cli_args.verbose:
         CONF.set_cli('verbose', cli_parser._args.verbose)
-
+    
+    if not CONF.openstack.customs_config:
+        file_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'conf',
+            'openstack_customs.yaml')
+        CONF.openstack.set_option_value('customs_config', file_path)
     try:
         cli_parser.call()
         return 0
     except KeyboardInterrupt:
         LOG.error("user interrupt")
         return 1
+
 
 if __name__ == '__main__':
     sys.exit(main())

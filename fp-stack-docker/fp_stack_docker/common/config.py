@@ -56,6 +56,7 @@ openstack_opts = [
     cfg.Option('admin_password', default=DEFAULT_ADMIN_PASSWORD),
     cfg.Option('rabbitmq_user', default='openstack'),
     cfg.Option('rabbitmq_password', default='openstack123'),
+    cfg.Option('customs_config'),
 ]
 
 rabbitmq_opts = [
