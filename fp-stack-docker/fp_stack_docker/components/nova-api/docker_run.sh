@@ -22,13 +22,6 @@ export NOVA_AUTH_PASSWORD=nova123
 source /admin_openrc.sh
 
 # nova api
-openstack user create ${NOVA_AUTH_USER} --password ${NOVA_AUTH_PASSWORD}
-openstack role add --project service --user ${NOVA_AUTH_USER} admin
-
-openstack service create --name nova --description 'OpenStack Compute' compute
-openstack endpoint create --region RegionOne compute public http://${NOVA_HOST}:8774/v2.1
-openstack endpoint create --region RegionOne compute internal http://${NOVA_HOST}:8774/v2.1
-openstack endpoint create --region RegionOne compute admin http://${NOVA_HOST}:8774/v2.1
 
 
 # placement

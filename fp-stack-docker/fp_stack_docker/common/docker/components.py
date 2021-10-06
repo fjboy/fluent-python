@@ -1,3 +1,4 @@
+from ntpath import join
 import docker
 import json
 import socket
@@ -129,7 +130,7 @@ class DockerComponent(object):
         LOG.info('[%s] config', self.NAME)
         self.update_hosts(self.NAME)
         if not self.running():
-            LOG.error('%s is not running, can not config', self.NAME)
+            LOG.error('config failed, %s is not running', self.NAME)
             return
         LOG.info('[%s] register service', self.NAME)
         self.register_service()
@@ -144,8 +145,16 @@ class DockerComponent(object):
     def get_auth_password(self, user):
         return CONF.openstack.auth_identity.get(user, '')
 
-    def get_component_host(self, component):
-        return CONF.deploy.components.get(component, '')
+    def get_deploy_hosts(self, component):
+        return CONF.deploy.components.get(component)
+
+    def get_memcache_servers(self, join=None):
+        hosts = self.get_deploy_hosts(Memcached.NAME)
+        servers = ['{}:11211'.format(h) for h in hosts.split(',')]
+        if join:
+            return ','.join(servers)
+        else:
+            return servers
 
     def run_cmd_in_container(self, cmd, user=None, container=None):
         if not container:
@@ -271,10 +280,13 @@ class DockerComponent(object):
                                                  Loader=yaml.FullLoader)
         LOG.debug('%s constom config: %s',
                   component, self._customs_config.get(component))
-        return self._customs_config.get(component, {})
+        return self._customs_config.get(component) or {}
 
     def get_config_map(self):
         return {}
+
+    def get_localhostname(self):
+        return socket.gethostname()
 
 
 class Mariadb(DockerComponent):
@@ -291,36 +303,33 @@ class Mariadb(DockerComponent):
     def update_component_config(self):
         for component, _ in CONF.deploy.components.items():
             if component == 'keystone':
-                self.init_database('keystone')
+                self.init_database('keystone', 'keystone')
             elif component == 'neutron-server':
-                self.init_database('neutron')
+                self.init_database('neutron', 'neutron')
             elif component == 'nova-api':
-                self.init_database('nova')
-                self.init_database('nova_api')
+                self.init_database('nova', 'nova')
+                self.init_database('nova_api', 'nova')
+                self.init_database('nova_cell0', 'nova')
             if component == 'glance-api':
-                self.init_database('glance')
+                self.init_database('glance', 'glance')
             if component == 'cinder-api':
-                self.init_database('cinder')
+                self.init_database('cinder', 'cinder')
 
-    def init_database(self, database):
+    def init_database(self, database, user):
         LOG.info('[%s] init database %s', self.NAME, database)
         container = self.docker.containers.get(self.NAME)
         result = self.run_sql_in_container(self.SQL_CREATE_DB.format(database),
                                            container=container)
         if result:
             raise Exception('create database failed {}'.format(result))
-        result = self.run_sql_in_container(self.SQL_CREATE_DB.format(database),
-                                           container=container)
-        if result:
-            raise Exception('create database failed {}'.format(result))
-        password = self.get_db_password(database)
+        password = self.get_db_password(user)
 
         LOG.info('[%s] grant for %s', self.NAME, database)
         self.run_sql_in_container(
-            self.SQL_GRANT_LOCALHOST.format(database, database, password),
+            self.SQL_GRANT_LOCALHOST.format(database, user, password),
             container=container)
         self.run_sql_in_container(
-            self.SQL_GRANT_ALL.format(database, database, password),
+            self.SQL_GRANT_ALL.format(database, user, password),
             container=container)
         self.run_sql_in_container('FLUSH PRIVILEGES;', container=container)
 
@@ -641,6 +650,8 @@ class NovaApi(DockerComponent):
     VOLUMES = {'/etc/hosts': '/etc/hosts',
                '/sys/fs/cgroup': '/sys/fs/cgroup',
                '/var/log/nova': '/var/log/nova'}
+    CONNECTION = 'mysql+pymysql://nova:{}@{}/nova'
+    API_CONNECTION = 'mysql+pymysql://nova:{}@{}/nova_api'
 
     def register_user(self):
         LOG.info('[%s] create user', self.NAME)
@@ -659,7 +670,66 @@ class NovaApi(DockerComponent):
 
     def config(self):
         self.run_cmd_in_container(['yum', 'install', '-y', 'openstack-utils'])
-        super(Keystone, self).config()
+        super(NovaApi, self).config()
+
+        LOG.info('[%s] db sync', self.NAME)
+        result = self.run_cmd_in_container(
+            ['nova-manage', 'api_db', 'sync'], user='nova')
+        if result:
+            raise Exception('api_db sync failed, error={}'.format(result))
+
+        result = self.run_cmd_in_container(
+            ['nova-manage', 'cell_v2', 'map_cell0'], user='nova')
+        if result and b'already setup' not in result:
+            raise Exception('map_cell0 failed, error={}'.format(result))
+
+        result = self.run_cmd_in_container(
+            ['nova-manage', 'cell_v2', 'create_cell', '--name=cell1'],
+            user='nova')
+        if result and (b'error' in result or b'ERROR' in result):
+            raise Exception(
+                'create_cell cell1 failed, error={}'.format(result))
+
+        result = self.run_cmd_in_container(
+            ['nova-manage', 'db', 'sync'], user='nova')
+        if result and b'Error' in result:
+            raise Exception('db sync failed, error={}'.format(result))
+
+    def get_config_map(self):
+        pwd = self.get_db_password('nova')
+        if not pwd:
+            raise Exception('nova db password not set')
+        return {
+            '/etc/nova/nova.conf': {
+                 'DEFAULT': {
+                    'transport_url': self.get_openstack_rabbitmq_url(),
+                    'osapi_compute_listen':
+                        self.get_localhostname(),
+                    'my_ip': self.get_component_ip(self.NAME),
+                },
+                'keystone_authtoken':
+                    self.get_keystone_authtoken_config('nova'),
+                'cinder': {
+                    'os_region_name': 'RegionOne'
+                },
+                'database': {
+                    'connection': self.CONNECTION.format(
+                        self.get_db_password('nova'), 'mariadb-server')
+                },
+                'api_database': {
+                      'connection':
+                          self.API_CONNECTION.format(
+                              self.get_db_password('nova'),
+                              'mariadb-server')
+                },
+                'cache': {
+                    'memcache_servers': self.get_memcache_servers(join=',')
+                },
+                'glance':{
+                    'api_servers': 'http://glance-server:9292'
+                }
+            }
+        }
 
 
 class NovaScheduler(DockerComponent):

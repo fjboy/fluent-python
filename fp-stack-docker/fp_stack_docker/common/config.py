@@ -16,7 +16,7 @@ DEFAULT_DB_IDENTITY = """
 keystone:keystone123
 neutron:neutron123
 nova:nova123
-nova-api:nova123
+nova_api:nova123
 cinder:cinder123
 glance:glance123
 """

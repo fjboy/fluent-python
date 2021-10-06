@@ -37,3 +37,9 @@ neutron-server:
       tenant_network_types: vxlan
       enable_security_group: 'True'
       enable_ipset: 'true'
+
+nova-api:
+  /etc/nova/nova.conf:
+    DEFAULT:
+      debug: 'True'
+      osapi_compute_workers: '4'
