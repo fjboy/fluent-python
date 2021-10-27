@@ -1,21 +1,20 @@
 from __future__ import print_function
 from concurrent import futures
-from re import S
 import eventlet
 import threading
 import contextlib
 
-from fplib.common import log
-from keystoneclient.auth import conf
+from fp_lib.common import log
 from fpstackutils.openstack import client
 
 LOG = log.getLogger(__name__)
 
 
 class OpenstaskUtils(object):
-    
+    progress_format = '{}% {}'
+
     def __init__(self):
-        super().__init__()
+        super(OpenstaskUtils, self).__init__()
         self.openstack = client.OpenstackClient.create_instance()
 
     def get_deletable_servers(self, name=None):
@@ -25,7 +24,7 @@ class OpenstaskUtils(object):
             if name and (name not in s.name):
                 LOG.info('skip server: %s(%s)', s.name, s.id)
                 continue
-            if getattr(S, 'OS-EXT-STS:task_state') == 'deleting':
+            if getattr(s, 'OS-EXT-STS:task_state') == 'deleting':
                 continue
             servers.append(s)
         return servers
@@ -40,7 +39,7 @@ class OpenstaskUtils(object):
             with self.start_progress(len(servers)) as progress:
                 deleted = 0
                 with futures.ThreadPoolExecutor(
-                    max_workers=workers) as executor:
+                        max_workers=workers) as executor:
                     for _ in executor.map(self._delete, servers):
                         deleted += 1
                         progress['completed'] = deleted
@@ -82,7 +81,7 @@ class OpenstaskUtils(object):
             'cidr': "192.168.{}.0/24".format(index),
             'ip_version': 4,
             'network_id': net['id'],
-            'name': '{}-subnet{}'.format(name_prefix, i)
+            'name': '{}-subnet{}'.format(name_prefix, index)
         })
         return net, subnet
 
@@ -117,3 +116,13 @@ class OpenstaskUtils(object):
         ])
         for config in [(1, 1, 10), (4, 4, 20), (8, 8, 40)]:
             self.create_falvor(name_prefix, config[0], config[1], config[2])
+
+    def vm_lifecycle(self, image_id, flavor_id, worker=1, times=1):
+
+        def _run(args):
+            vm = self.openstack.create_vm(image=image_id, flavor=flavor_id)
+            self.openstack.delete_vm(vm.id)
+
+        with futures.ThreadPoolExecutor(max_workers=worker) as executor:
+            for _ in executor.map(_run, [''] * times):
+                pass

@@ -1,6 +1,6 @@
 from __future__ import print_function
-from fplib.common import cliparser
-from fplib.common import log
+from fp_lib.common import cliparser
+from fp_lib.common import log
 from fpstackutils.openstack import utils
 
 
@@ -30,3 +30,21 @@ class InitResources(cliparser.CliBase):
     def __call__(self, args):
         openstack_utils = utils.OpenstaskUtils()
         openstack_utils.init_resources(args.name_prefix, net_num=args.net_num)
+
+
+class VMLifeCycle(cliparser.CliBase):
+    NAME = 'vm-lifecycle'
+    ARGUMENTS = [
+        cliparser.Argument('image_id', help='image id'),
+        cliparser.Argument('flavor_id', help='flavor id'),
+        cliparser.Argument('-w', '--worker', type=int, default=1,
+                           help='worker'),
+        cliparser.Argument('-t', '--times', type=int, default=1,
+                           help='run times')
+    ]
+
+    def __call__(self, args):
+        openstack_utils = utils.OpenstaskUtils()
+        openstack_utils.vm_lifecycle(args.image_id, args.flavor_id,
+                                     worker=args.worker,
+                                     times=args.times)
