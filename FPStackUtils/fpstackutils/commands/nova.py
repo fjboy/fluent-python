@@ -39,12 +39,16 @@ class VMLifeCycle(cliparser.CliBase):
         cliparser.Argument('flavor_id', help='flavor id'),
         cliparser.Argument('-w', '--worker', type=int, default=1,
                            help='worker'),
+        cliparser.Argument('--net-ids', help='net ids, e.g. net1,net2'),
+        cliparser.Argument('--port-ids', help='port ids, e.g. net1,net2'),
         cliparser.Argument('-t', '--times', type=int, default=1,
                            help='run times')
     ]
 
     def __call__(self, args):
         openstack_utils = utils.OpenstaskUtils()
-        openstack_utils.vm_lifecycle(args.image_id, args.flavor_id,
-                                     worker=args.worker,
-                                     times=args.times)
+        openstack_utils.vm_lifecycle(
+            args.image_id, args.flavor_id,
+            net_ids=args.net_ids.split(',') if args.net_ids else None,
+            port_ids=args.port_ids.split(',') if args.port_ids else None,
+            worker=args.worker, times=args.times)
