@@ -130,12 +130,16 @@ class OpenstaskUtils(object):
         nics = self._get_nics(net_ids=net_ids, port_ids=port_ids)
         LOG.debug('create with nics: %s', nics)
 
+        
         def _run():
             vm = self.openstack.create_vm(image_id, flavor_id, nics=nics, 
                                           wait=True)
             self.openstack.delete_vm(vm.id)
 
-        with futures.ThreadPoolExecutor(max_workers=worker) as executor:
-            tasks = [executor.submit(_run) for i in range(times)]
-            for task in tasks:
-                task.done()
+        from fp_lib.common import workers
+        workers.run_concurrent(_run, nums=times, max_workers=worker)
+
+        # with futures.ThreadPoolExecutor(max_workers=worker) as executor:
+        #     tasks = [executor.submit(_run) for i in range(times)]
+        #     for task in tasks:
+        #         task.done()
