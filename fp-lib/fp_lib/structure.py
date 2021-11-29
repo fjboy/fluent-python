@@ -17,9 +17,10 @@ class LastNList(object):
     >>> l.all()
     [3, 4]
     """
+
     def __init__(self, size, reserve=None):
         """
-        By default, one time of the specified size is reserved 
+        By default, one time of the specified size is reserved
         """
         self.size = size
         self._data = []

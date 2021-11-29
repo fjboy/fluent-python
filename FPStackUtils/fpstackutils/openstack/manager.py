@@ -100,7 +100,8 @@ class VMManagerBase(object):
                 raise exceptions.WaitVMStatusTimeout(vm=vm.id,
                                                      expect=check_status,
                                                      actual=vm_state)
-            LOG.debug('[vm: %s] vm_state=%s, stask_state=%s',vm.id, vm_state, task_state)
+            LOG.debug('[vm: %s] vm_state=%s, stask_state=%s',
+                      vm.id, vm_state, task_state)
             if (not check_status or vm_state in check_status) and \
                (not task_states or task_state in task_states):
                 break
@@ -393,7 +394,7 @@ class VMManager(VMManagerBase):
             LOG.info('[vm: %s] attached volume %s, %s', vol.id, vm.id, i + 1)
             attached_volumes.append(vol)
         LOG.info(colorstr.GreenStr('[vm: %s] attached %s volume(s)'),
-                     vm.id, len(attached_volumes))
+                 vm.id, len(attached_volumes))
         return attached_volumes
 
     def test_volume_detach(self, vm, attached_volumes):
@@ -401,7 +402,7 @@ class VMManager(VMManagerBase):
             LOG.info('[vm: %s] volume %s detaching', vm.id, vol.id)
             self._detach_volume(vm, vol.id, wait=True)
         LOG.info(colorstr.GreenStr('[vm: %s] detached %s volume(s)'),
-                     vm.id, len(attached_volumes))
+                 vm.id, len(attached_volumes))
 
     def test_volume_attach_detach(self, vm):
         if not CONF.task.attach_volume:
@@ -445,8 +446,8 @@ class VMManager(VMManagerBase):
         timeout_exc = exceptions.VolumeAttachTimeout(volume=volume.id,
                                                      timeout=600)
         for w in waiter.loop_waiter(
-            self.openstack.cinder.volumes.get, args=(volume.id,),
-            interval=5, timeout=600, timeout_exc=timeout_exc):
+                self.openstack.cinder.volumes.get, args=(volume.id,),
+                interval=5, timeout=600, timeout_exc=timeout_exc):
             if w.result.status == 'in-use':
                 w.finish = True
             elif w.result.status == 'error':
@@ -460,8 +461,8 @@ class VMManager(VMManagerBase):
         timeout_exc = exceptions.VolumeDetachTimeout(volume=volume_id,
                                                      timeout=600)
         for w in waiter.loop_waiter(
-            self.openstack.cinder.volumes.get, args=(volume_id,),
-            interval=5, timeout=600, timeout_exc=timeout_exc):
+                self.openstack.cinder.volumes.get, args=(volume_id,),
+                interval=5, timeout=600, timeout_exc=timeout_exc):
             if w.result.status == 'available':
                 w.finish = True
             elif w.result.status == 'error':

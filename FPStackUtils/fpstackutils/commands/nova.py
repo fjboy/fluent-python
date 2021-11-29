@@ -23,7 +23,7 @@ class VMCleanup(cliparser.CliBase):
     def __call__(self, args):
         vm_manager = manager.VMManager()
         vm_manager.cleanup_vms(name=args.name, workers=args.workers,
-                                      status=args.status)
+                               status=args.status)
 
 
 class ResourcesInit(cliparser.CliBase):
@@ -36,7 +36,7 @@ class ResourcesInit(cliparser.CliBase):
     def __call__(self, args):
         vm_manager = manager.VMManager()
         vm_manager.init_resources(args.name_prefix,
-                                         net_num=args.net_num)
+                                  net_num=args.net_num)
 
 
 class VMTest(cliparser.CliBase):

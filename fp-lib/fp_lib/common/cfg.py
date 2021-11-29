@@ -77,6 +77,7 @@ class MapOption(Option):
                 tmp_value[option] = value
         return tmp_value
 
+
 class OptGroup(object):
 
     def __init__(self, name):

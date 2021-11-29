@@ -28,6 +28,7 @@ class VolumeCreateFailed(base_exc.BaseException):
 class VmCreatedFailed(base_exc.BaseException):
     _msg = 'vm {vm} create failed'
 
+
 class StopFailed(base_exc.BaseException):
     _msg = 'Stop {vm} failed, reason: {reason}'
 
