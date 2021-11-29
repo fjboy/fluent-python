@@ -117,29 +117,13 @@ class OpenstaskUtils(object):
         for config in [(1, 1, 10), (4, 4, 20), (8, 8, 40)]:
             self.create_falvor(name_prefix, config[0], config[1], config[2])
 
-    def _get_nics(self, net_ids=None, port_ids=None):
-        nics = []
-        for net_id in net_ids or []:
-            nics.append({'net-id': net_id})
-        for port_id in port_ids or []:
-            nics.append({'port-id': port_id})
-        return nics
-
     def vm_lifecycle(self, image_id, flavor_id, net_ids=None, port_ids=None,
                      worker=1, times=1):
-        nics = self._get_nics(net_ids=net_ids, port_ids=port_ids)
-        LOG.debug('create with nics: %s', nics)
-
-        
-        def _run():
-            vm = self.openstack.create_vm(image_id, flavor_id, nics=nics, 
-                                          wait=True)
+        def _run(args):
+            vm = self.openstack.create_vm(image_id, flavor_id,
+                                          net_ids=net_ids, port_ids=port_ids)
             self.openstack.delete_vm(vm.id)
 
-        from fp_lib.common import workers
-        workers.run_concurrent(_run, nums=times, max_workers=worker)
-
-        # with futures.ThreadPoolExecutor(max_workers=worker) as executor:
-        #     tasks = [executor.submit(_run) for i in range(times)]
-        #     for task in tasks:
-        #         task.done()
+        with futures.ThreadPoolExecutor(max_workers=worker) as executor:
+            for _ in executor.map(_run, [''] * times):
+                pass

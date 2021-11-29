@@ -1,16 +1,18 @@
+"""
+openstack client
+"""
 from __future__ import print_function
 import os
-from datetime import datetime
 import time
 import json
 
+from cinderclient import client as cinder_client
+import glanceclient
 from keystoneauth1.identity import v3
 from keystoneauth1.session import Session
-from keystoneclient import auth
 from keystoneclient.v3 import client
 from neutronclient.v2_0 import client as neutronclient
 from novaclient import client as novaclient
-import glanceclient
 
 from fp_lib.common import exceptions as fpexc
 from fp_lib.common import log
@@ -37,6 +39,7 @@ class OpenstackClient(object):
         self.nova = novaclient.Client('2.1', session=self.session,
                                       extensions=nova_extensions)
         self.glance = glanceclient.Client(2.1, session=self.session)
+        self.cinder = cinder_client.Client('2', session=self.session)
 
     @classmethod
     def get_auth_info_from_env(cls):
@@ -58,56 +61,51 @@ class OpenstackClient(object):
         LOG.debug('auth info: %s', auth_kwargs)
         return OpenstackClient(auth_url, **auth_kwargs)
 
-    @staticmethod
-    def generate_vm_name():
-        prefix = os.getenv('NOVA_VM_PREFIX', 'test-vm')
-        return '{}-{}'.format(prefix, datetime.now().strftime('%m%d-%H:%M:%S'))
+    def delete_vm(self, vm):
+        vm.delete()
 
-    def _wait_for_vm(self, vm_id, status={'active', 'error'}, timeout=None):
-        if status:
-            check_status = status if isinstance(status, set) else set([status])
-        else:
-            check_status = []
-        task_spend = {}
-        timeout_seconds = time.time() + timeout if timeout else None
-        while True:
-            if timeout_seconds and time.time() > timeout_seconds:
-                break
-            vm = self.nova.servers.get(vm_id)
-            vm_state = getattr(vm, 'OS-EXT-STS:vm_state')
-            LOG.debug('vm %s status is %s', vm_id, vm_state)
-            if check_status and vm_state in check_status:
-                break
-            task_state = getattr(vm, 'OS-EXT-STS:task_state')
-            if task_state not in task_spend:
-                task_spend[task_state] = 1
-            else:
-                task_spend[task_state] += 1
-            time.sleep(1)
-        LOG.info('vm %s tasks: %s', vm.id, json.dumps(task_spend, indent=4))
-        return vm
+    def attach_interface(self, net_id=None, port_id=None):
+        return self.nova.servers.interface_attach(net_id=net_id,
+                                                  port_id=port_id)
 
-    def create_vm(self, image_id, flavor_id, name=None, , nics=None,
-                  create_timeout=1800, wait=False):
-        start_time = time.time()
-        vm = self.nova.servers.create(name=name or self.generate_vm_name(),
-                                      image=image_id, flavor=flavor_id,
-                                      nics=nics)
-        LOG.info('creating vm: %s(%s)', vm.id, vm.name)
-        if wait:
-            vm = self._wait_for_vm(vm.id, timeout=create_timeout)
-        if getattr(vm, 'OS-EXT-STS:vm_state') == 'error':
-            LOG.error('vm %s create failed', vm.id)
-        else:
-            LOG.info('vm %s create success, spend: %.4f seconds',
-                     vm.id, time.time() - start_time)
-        return vm
+    def detach_interface(self, vm_id, port_id, wait=True):
+        return self.nova.servers.interface_detach(vm_id, port_id)
 
-    def delete_vm(self, vm_id):
-        LOG.info('deleting vm: %s', vm_id)
-        self.nova.servers.delete(vm_id)
-        try:
-            self._wait_for_vm(vm_id, status='deleted')
-        except novaclient.exceptions.NotFound:
-            pass
-        LOG.info('deleted vm: %s', vm_id)
+    def list_interface(self, vm_id):
+        return self.nova.servers.interface_list(vm_id)
+
+    def attach_volume(self, vm_id, volume_id):
+        return self.nova.volumes.create_server_volume(vm_id, volume_id)
+
+    def detach_volume(self, vm_id, volume_id):
+        return self.nova.volumes.delete_server_volume(vm_id, volume_id)
+
+    def create_volume(self, name, size_gb=None):
+        size = size_gb or 1
+        return self.cinder.volumes.create(size, name=name)
+
+    def get_volume(self, volume_id):
+        return self.cinder.volumes.get(volume_id)
+
+    def delete_volume(self, volume_id):
+        return self.cinder.volumes.delete(volume_id)
+
+    def get_vm_actions(self, vm):
+        actions = {}
+        for action in self.nova.instance_action.list(vm.id):
+            actions.setdefault(action.action, [])
+            vm_action = self.nova.instance_action.get(vm.id,
+                                                      action.request_id)
+            for event in vm_action.events:
+                actions[action.action].append(event)
+        return actions
+
+    def get_vm_events(self, vm):
+        action_events = []
+        for action in self.nova.instance_action.list(vm.id):
+            vm_action = self.nova.instance_action.get(vm.id,
+                                                      action.request_id)
+            events = sorted(vm_action.events,
+                            key=lambda x: x.get('start_time'))
+            action_events.append((action.action, events))
+        return action_events

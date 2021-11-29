@@ -1,54 +1,63 @@
 from __future__ import print_function
+import logging
+import os
 from fp_lib.common import cliparser
 from fp_lib.common import log
-from fpstackutils.openstack import utils
+from fpstackutils.openstack import manager
 
 
+from fpstackutils.common import config
+
+CONF = config.CONF
 LOG = log.getLogger(__name__)
 
 
-class CleanUpServers(cliparser.CliBase):
-    NAME = 'cleanup-servers'
+class VMCleanup(cliparser.CliBase):
+    NAME = 'vm-cleanup'
     ARGUMENTS = [
         cliparser.Argument('-w', '--workers', type=int, default=10,
                            help='The workers to cleanup, default is 10'),
-        cliparser.Argument('-n', '--name',
-                           help='Instance name, e.g. test-vm')]
+        cliparser.Argument('-n', '--name', help='VM name, e.g. test-vm'),
+        cliparser.Argument('-s', '--status', help='VM status, e.g. error')]
 
     def __call__(self, args):
-        openstack_utils = utils.OpenstaskUtils()
-        openstack_utils.cleanup_servers(name=args.name, workers=args.workers)
+        vm_manager = manager.VMManager()
+        vm_manager.cleanup_vms(name=args.name, workers=args.workers,
+                                      status=args.status)
 
 
-class InitResources(cliparser.CliBase):
-    NAME = 'init-resources'
+class ResourcesInit(cliparser.CliBase):
+    NAME = 'resources-init'
     ARGUMENTS = [
         cliparser.Argument('name_prefix', help='name prefix of resources'),
         cliparser.Argument('-n', '--net-num', default=1,
                            help='The num of network.')]
 
     def __call__(self, args):
-        openstack_utils = utils.OpenstaskUtils()
-        openstack_utils.init_resources(args.name_prefix, net_num=args.net_num)
+        vm_manager = manager.VMManager()
+        vm_manager.init_resources(args.name_prefix,
+                                         net_num=args.net_num)
 
 
-class VMLifeCycle(cliparser.CliBase):
-    NAME = 'vm-lifecycle'
+class VMTest(cliparser.CliBase):
+    NAME = 'vm-test'
     ARGUMENTS = [
-        cliparser.Argument('image_id', help='image id'),
-        cliparser.Argument('flavor_id', help='flavor id'),
-        cliparser.Argument('-w', '--worker', type=int, default=1,
-                           help='worker'),
-        cliparser.Argument('--net-ids', help='net ids, e.g. net1,net2'),
-        cliparser.Argument('--port-ids', help='port ids, e.g. net1,net2'),
-        cliparser.Argument('-t', '--times', type=int, default=1,
-                           help='run times')
+        cliparser.Argument('-c', '--conf', default='fpstack.conf',
+                           help='config file'),
     ]
 
     def __call__(self, args):
-        openstack_utils = utils.OpenstaskUtils()
-        openstack_utils.vm_lifecycle(
-            args.image_id, args.flavor_id,
-            net_ids=args.net_ids.split(',') if args.net_ids else None,
-            port_ids=args.port_ids.split(',') if args.port_ids else None,
-            worker=args.worker, times=args.times)
+        if args.conf and os.path.isfile(args.conf):
+            CONF.load(args.conf)
+            LOG.info('load config from %s', args.conf)
+            LOG.info('debug is %s', CONF.debug)
+        elif args.conf:
+            LOG.error('config file %s is not exists', args.conf)
+            return
+        if args.debug:
+            CONF.set_cli('debug', args.debug)
+        if CONF.debug:
+            log.set_default(level=logging.DEBUG)
+
+        vm_manager = manager.VMManager()
+        vm_manager.test_vm()

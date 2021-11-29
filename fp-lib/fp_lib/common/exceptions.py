@@ -13,3 +13,6 @@ class ValueIsNone(BaseException):
 class EnvIsNone(BaseException):
     _msg = 'the value of {} in env is none'
 
+
+class LoopTimeout(BaseException):
+    _msg = 'loop timeout({timeout}s)'

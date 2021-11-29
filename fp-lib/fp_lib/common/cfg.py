@@ -85,6 +85,8 @@ class OptGroup(object):
         self._options = {}
 
     def add_opt(self, opt):
+        if self.has_option(opt.name):
+            raise ValueError('option {} already exists'.format(opt.name))
         self._options[opt.name] = opt
 
     def __getattr__(self, name):
@@ -101,6 +103,9 @@ class OptGroup(object):
 
     def get_options(self):
         return self._options.values()
+
+    def has_option(self, opt_name):
+        return opt_name in self.options()
 
 
 class ConfigOpts(object):
@@ -155,8 +160,10 @@ class ConfigOpts(object):
     def load(self, conf_file):
         parser = configparser.RawConfigParser()
         parser.read(conf_file)
+        self._conf_files.append(conf_file)
         for group_name in self.groups():
-            if not parser.has_section(group_name):
+            if group_name != configparser.DEFAULTSECT and \
+               not parser.has_section(group_name):
                 continue
             opt_group = getattr(self, group_name)
             for opt_name in getattr(self, group_name).options():
@@ -164,7 +171,6 @@ class ConfigOpts(object):
                     continue
                 opt_group.set_option_value(
                     opt_name, parser.get(group_name, opt_name))
-        self._conf_files.append(conf_file)
 
     def set_cli(self, option, value, group=configparser.DEFAULTSECT):
         opt_group = getattr(self, group)
