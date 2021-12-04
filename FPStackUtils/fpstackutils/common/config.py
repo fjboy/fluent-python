@@ -1,7 +1,8 @@
 from fp_lib.common import cfg
 
-CONF = cfg.CONF
+from fpstackutils.common import constants
 
+CONF = cfg.CONF
 
 default_opts = [
     cfg.BooleanOption('debug', default=False),
@@ -14,27 +15,32 @@ openstack_opts = [
     cfg.Option('attach_net'),
     cfg.BooleanOption('boot_from_volume', default=False),
     cfg.IntOption('volume_size', default=10),
+    cfg.Option('boot_az'),
 ]
 
 task_opts = [
     cfg.IntOption('total', default=1),
     cfg.IntOption('worker', default=1),
-
     cfg.BooleanOption('attach_net', default=False),
+    cfg.ListOption('test_actions', default=constants.ACTIONS_ALL),
+
     cfg.IntOption('attach_net_nums', default=1),
     cfg.IntOption('attach_net_times', default=1),
 
-    cfg.BooleanOption('attach_volume', default=False),
     cfg.IntOption('attach_volume_nums', default=1),
     cfg.IntOption('attach_volume_times', default=1),
 
-    cfg.BooleanOption('attach_port', default=False),
     cfg.IntOption('attach_port_nums', default=1),
     cfg.IntOption('attach_port_tims', default=1),
 
-    cfg.IntOption('detach_interface_check_interval', default=1),
-    cfg.IntOption('detach_interface_timeout', default=60),
-    cfg.BooleanOption('reboot', default=False),
+    cfg.IntOption('boot_wait_interval', default=1),
+    cfg.IntOption('boot_wait_timeout', default=600),
+
+    cfg.IntOption('detach_interface_wait_interval', default=1),
+    cfg.IntOption('detach_interface_wait_timeout', default=60),
+
+    cfg.IntOption('migrate_wait_interval', default=5),
+    cfg.IntOption('migrate_wait_timeout', default=60),
 ]
 
 

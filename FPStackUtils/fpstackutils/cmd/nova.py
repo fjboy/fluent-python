@@ -12,7 +12,6 @@ def main():
     cli_parser.register_clis(nova.VMCleanup,
                              nova.ResourcesInit,
                              nova.VMTest)
-    cli_parser._args
     try:
         cli_parser.call()
         return 0

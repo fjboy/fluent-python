@@ -1,12 +1,13 @@
+
 from fp_lib.common import exceptions as base_exc
 
 
 class InterfaceDetachTimeout(base_exc.BaseException):
-    _msg = 'vm {vm} interface detach timeout with {timeout} seconds'
+    _msg = 'vm {vm} interface detach timeout({timeout}s)'
 
 
 class VolumeAttachTimeout(base_exc.BaseException):
-    _msg = 'volume {volume} attach timeout with {timeout} seconds'
+    _msg = 'volume {volume} attach timeout({timeout}s'
 
 
 class VolumeAttachtFailed(base_exc.BaseException):
@@ -58,8 +59,20 @@ class VMIsError(base_exc.BaseException):
 
 
 class LoopTimeout(base_exc.BaseException):
-    _msg = 'loop timeout({timeout})'
+    _msg = 'loop timeout({timeout}s)'
 
 
 class VolumeDetachFailed(base_exc.BaseException):
     _msg = 'volume {volume} detach failed'
+
+
+class ResizeFailed(base_exc.BaseException):
+    _msg = 'resize {vm} failed, reason: {reason}'
+
+
+class MigrateFailed(base_exc.BaseException):
+    _msg = 'migrate {vm} failed, reason: {reason}'
+
+
+class LiveMigrateFailed(base_exc.BaseException):
+    _msg = 'live migrate {vm} failed, reason: {reason}'

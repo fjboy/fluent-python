@@ -1,27 +1,24 @@
 """
 openstack client
 """
-from __future__ import print_function
 import os
-import time
-import json
 
 from cinderclient import client as cinder_client
 import glanceclient
 from keystoneauth1.identity import v3
 from keystoneauth1.session import Session
 from keystoneclient.v3 import client
-from neutronclient.v2_0 import client as neutronclient
-from novaclient import client as novaclient
+from neutronclient.v2_0 import client as neutron_client
+from novaclient import client as nova_client
 
-from fp_lib.common import exceptions as fpexc
+from fp_lib.common import exceptions as fp_exc
 from fp_lib.common import log
 
 LOG = log.getLogger(__name__)
 
-NOVA_API_VERSION = "2.1"
+NOVA_API_VERSION = "2.37"
 nova_extensions = [ext for ext in
-                   novaclient.discover_extensions(NOVA_API_VERSION)
+                   nova_client.discover_extensions(NOVA_API_VERSION)
                    if ext.name in ("assisted_volume_snapshots",
                                    "list_extensions",
                                    "server_external_events")]
@@ -35,23 +32,23 @@ class OpenstackClient(object):
         self.auth = v3.Password(*args, **kwargs)
         self.session = Session(auth=self.auth)
         self.keystone = client.Client(session=self.session)
-        self.neutron = neutronclient.Client(session=self.session)
-        self.nova = novaclient.Client('2.1', session=self.session,
-                                      extensions=nova_extensions)
-        self.glance = glanceclient.Client(2.1, session=self.session)
+        self.neutron = neutron_client.Client(session=self.session)
+        self.nova = nova_client.Client(NOVA_API_VERSION, session=self.session,
+                                       extensions=nova_extensions)
+        self.glance = glanceclient.Client('2', session=self.session)
         self.cinder = cinder_client.Client('2', session=self.session)
 
     @classmethod
     def get_auth_info_from_env(cls):
         if 'OS_AUTH_URL' not in os.environ:
-            raise fpexc.EnvIsNone('OS_AUTH_URL')
+            raise fp_exc.EnvIsNone('OS_AUTH_URL')
         auth_url = os.getenv('OS_AUTH_URL')
         auth_kwargs = {}
         for auth_arg in cls.V3_AUTH_KWARGS:
             env = 'OS_{}'.format(auth_arg.upper())
             value = os.getenv(env)
             if not value:
-                raise fpexc.EnvIsNone(env)
+                raise fp_exc.EnvIsNone(env)
             auth_kwargs[auth_arg] = value
         return auth_url, auth_kwargs
 
@@ -61,14 +58,11 @@ class OpenstackClient(object):
         LOG.debug('auth info: %s', auth_kwargs)
         return OpenstackClient(auth_url, **auth_kwargs)
 
-    def delete_vm(self, vm):
-        vm.delete()
-
     def attach_interface(self, net_id=None, port_id=None):
         return self.nova.servers.interface_attach(net_id=net_id,
                                                   port_id=port_id)
 
-    def detach_interface(self, vm_id, port_id, wait=True):
+    def detach_interface(self, vm_id, port_id):
         return self.nova.servers.interface_detach(vm_id, port_id)
 
     def list_interface(self, vm_id):

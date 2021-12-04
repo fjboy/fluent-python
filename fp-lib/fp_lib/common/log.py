@@ -6,7 +6,6 @@ _DEFAULT_FORMAT = '%(asctime)s %(levelname)s %(name)s:%(lineno)s %(message)s'
 _DEFAULT_FILE = None
 _DEFAULT_MAX_BYTES = 0
 _DEFAULT_BACKUP_COUNT = 1
-
 _LOGGER = set([])
 
 

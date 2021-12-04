@@ -42,3 +42,5 @@ class PurpleStr(WhiteStr):
     style = PURLE
 
 
+class YellowStr(WhiteStr):
+    style = YELLOW

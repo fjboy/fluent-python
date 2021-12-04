@@ -1,10 +1,9 @@
-from __future__ import print_function
 import logging
 import os
+
 from fp_lib.common import cliparser
 from fp_lib.common import log
 from fpstackutils.openstack import manager
-
 
 from fpstackutils.common import config
 
@@ -42,22 +41,19 @@ class ResourcesInit(cliparser.CliBase):
 class VMTest(cliparser.CliBase):
     NAME = 'vm-test'
     ARGUMENTS = [
-        cliparser.Argument('-c', '--conf', default='fpstack.conf',
+        cliparser.Argument('-c', '--conf', default='ec-nova.conf',
                            help='config file'),
     ]
 
     def __call__(self, args):
-        if args.conf and os.path.isfile(args.conf):
-            CONF.load(args.conf)
-            LOG.info('load config from %s', args.conf)
-            LOG.info('debug is %s', CONF.debug)
-        elif args.conf:
+        if args.conf and not os.path.isfile(args.conf):
             LOG.error('config file %s is not exists', args.conf)
             return
-        if args.debug:
-            CONF.set_cli('debug', args.debug)
+        CONF.load(args.conf)
         if CONF.debug:
             log.set_default(level=logging.DEBUG)
-
+        if args.debug:
+            CONF.set_cli('debug', args.debug)
+        LOG.debug('load config from %s', args.conf)
         vm_manager = manager.VMManager()
         vm_manager.test_vm()

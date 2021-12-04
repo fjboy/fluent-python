@@ -4,6 +4,9 @@
 *build
 *.pyc
 .vscode
+.idea
 readme.ipynb
 *.ipynb
 *horizon.conf
+*ChangeLog
+fp-lib/ChangeLog
