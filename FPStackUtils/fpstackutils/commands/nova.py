@@ -57,3 +57,24 @@ class VMTest(cliparser.CliBase):
         LOG.debug('load config from %s', args.conf)
         vm_manager = manager.VMManager()
         vm_manager.test_vm()
+
+
+class VMEvacuateTest(cliparser.CliBase):
+    NAME = 'vm-evacuate-test'
+    ARGUMENTS = [
+        cliparser.Argument('-c', '--conf', default='ec-nova.conf',
+                           help='config file'),
+    ]
+
+    def __call__(self, args):
+        if args.conf and not os.path.isfile(args.conf):
+            LOG.error('config file %s is not exists', args.conf)
+            return
+        CONF.load(args.conf)
+        if CONF.debug:
+            log.set_default(level=logging.DEBUG)
+        if args.debug:
+            CONF.set_cli('debug', args.debug)
+        LOG.debug('load config from %s', args.conf)
+        vm_manager = manager.VMManager()
+        vm_manager.test_evacuate()

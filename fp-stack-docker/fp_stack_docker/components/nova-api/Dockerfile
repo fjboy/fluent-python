@@ -1,4 +1,4 @@
-FROM centos:7
+lFROM centos:7
 
 RUN cd /etc/yum.repos.d && mkdir backup && mv *.repo backup
 COPY *.repo /etc/yum.repos.d/

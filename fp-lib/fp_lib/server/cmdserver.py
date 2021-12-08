@@ -55,7 +55,6 @@ class BaseWsgiApp(object):
 
     def do_POST(self, environ, start_response):
         req_data = self.get_wsgi_input_data()
-        LOG.debug('xxxx req_data is %s', req_data)
         resp = self.post(req_data)
         if isinstance(resp, str):
             return DEFUALT_METHOD_STATUS['POST'], resp

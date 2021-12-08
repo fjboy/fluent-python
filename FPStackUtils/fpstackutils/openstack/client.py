@@ -9,6 +9,7 @@ from keystoneauth1.identity import v3
 from keystoneauth1.session import Session
 from keystoneclient.v3 import client
 from neutronclient.v2_0 import client as neutron_client
+import novaclient
 from novaclient import client as nova_client
 
 from fp_lib.common import exceptions as fp_exc
@@ -16,7 +17,7 @@ from fp_lib.common import log
 
 LOG = log.getLogger(__name__)
 
-NOVA_API_VERSION = "2.37"
+NOVA_API_VERSION = "2.49"
 nova_extensions = [ext for ext in
                    nova_client.discover_extensions(NOVA_API_VERSION)
                    if ext.name in ("assisted_volume_snapshots",
@@ -103,3 +104,10 @@ class OpenstackClient(object):
                             key=lambda x: x.get('start_time'))
             action_events.append((action.action, events))
         return action_events
+
+    def force_down(self, service, force_down):
+        if self.nova.api_version >= novaclient.api_versions.APIVersion('2.53'):
+            self.nova.services.force_down(service.id, force_down)
+        else:
+            self.nova.services.force_down(service.host, service.binary,
+                                          force_down=force_down)

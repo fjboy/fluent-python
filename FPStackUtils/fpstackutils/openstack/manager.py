@@ -22,7 +22,7 @@ def check_if_skip(action):
 
     def wrapper(func):
         def wrapper_func(*args, **kwargs):
-            if action not in CONF.task.test_actions:
+            if action not in CONF.task.vm_test_actions:
                 LOG.warning('skip %s', action)
                 return
             return func(*args, **kwargs)
@@ -32,11 +32,31 @@ def check_if_skip(action):
     return wrapper
 
 
+class CleanUpManager(object):
+
+    def __init__(self):
+        self.cleanup_list = []
+
+    def add(self, func, *args, **kwargs):
+        self.cleanup_list.append((func, args or (), kwargs or {}))
+
+
+    def cleanup(self):
+        for func, args, kwargs in self.cleanup_list:
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                LOG.warning('run %s failed, error=%s', func, e)
+        self.cleanup_list = []
+
+
 class VMManagerBase(object):
 
     def __init__(self):
         self.openstack = client.OpenstackClient.create_instance()
         self.flavors_cached = {}
+        self.cleanup_manager = CleanUpManager()
+        self._attach_net = CONF.openstack.attach_net
 
     @staticmethod
     def generate_name(resource):
@@ -60,6 +80,7 @@ class VMManagerBase(object):
                                                     ram, vcpus, disk)
         if metadata:
             flavor.set_keys(metadata)
+        self.cleanup_manager.add(self.openstack.nova.flavors.delete, flavor.id)
         return flavor
 
     def get_available_services(self, host=None, binary=None):
@@ -122,7 +143,7 @@ class VMManagerBase(object):
             )
 
     def _wait_for_vm(self, vm, status=None, task_states=None,
-                     timeout=None, interval=1):
+                     ignore_vm_error=False, timeout=None, interval=1):
         if task_states is None:
             task_states = [None]
         if status is None:
@@ -136,7 +157,8 @@ class VMManagerBase(object):
             vm_state = self.get_vm_state(vm, refresh=True)
             task_state = self.get_task_state(vm)
             if vm_state == 'error':
-                raise exceptions.VMIsError(vm=vm.id)
+                if not ignore_vm_error:
+                    raise exceptions.VMIsError(vm=vm.id)
             if timeout and time.time() >= stop_time:
                 raise exceptions.WaitVMStatusTimeout(vm=vm.id,
                                                      expect=check_status,
@@ -151,14 +173,15 @@ class VMManagerBase(object):
 
     def clean_vms(self, vms):
         for vm in vms:
-            self.delete_vm(vm)
+            self.delete_vm(vm, wait=True)
 
-    def delete_vm(self, vm, wait=False):
+    def delete_vm(self, vm, wait=False, ignore_vm_error=False):
         try:
             vm.delete()
             LOG.debug('[vm: %s] deleting', vm.id)
             if wait:
-                self._wait_for_vm(vm, status='deleted')
+                self._wait_for_vm(vm, status='deleted',
+                                  ignore_vm_error=ignore_vm_error)
         except nova_exc.NotFound:
             LOG.debug('[vm: %s] deleted', vm.id)
 
@@ -202,9 +225,10 @@ class VMManagerBase(object):
             'VM', 'Action', 'Event', 'StartTime', 'EndTime', 'Result'])
         for action_name, events in vm_actions:
             for event in events:
-                st.add_row([vm.id, action_name, event['event'],
-                            event['start_time'], event['finish_time'],
-                            event['result']])
+                st.add_row([vm.id, action_name, event.get('event') or '',
+                            event.get('start_time')  or '',
+                            event.get('finish_time')  or '',
+                            event.get('result')  or ''])
         LOG.info('[vm: %s] actions:\n%s', vm.id, st.dumps())
 
     def check_can_migrate(self, vm):
@@ -215,6 +239,68 @@ class VMManagerBase(object):
             return False
         return True
 
+    def get_attach_net(self):
+        if not self._attach_net:
+            import random
+            net, _ = self.create_net_with_subnet(
+                '192.168.{}.0/24'.format(random.randint(1, 255)))
+            self._attach_net = net.get('id')
+        return self._attach_net
+
+    def create_net_with_subnet(self, cidr):
+        LOG.info('create network and subnet with cidr %s', cidr)
+        net = self.openstack.neutron.create_network({
+            'network': {'name': self.generate_name('net')}})
+        self.cleanup_manager.add(self.openstack.neutron.delete_network,
+                                 net.get('network').get('id'))
+        subnet = self.openstack.neutron.create_subnet({
+            'subnet': {'name': self.generate_name('subnet'),
+                       'network_id': net.get('network').get('id'),
+                       'cidr': cidr,
+                       "ip_version": 4}
+            })
+        return net.get('network'), subnet.get('subnet')
+
+    def evacute_vms(self, host, vms=None, wait=False):
+        vms = vms or []
+        LOG.info('start to test evacuate at %s, vm num is %s',
+                    host, len(vms))
+        for vm in vms:
+            vm.evacuate()
+        if not wait:
+            return
+
+        bar = progressbar.factory(CONF.task.total)
+        with futures.ThreadPoolExecutor(max_workers=CONF.task.worker) as tpe:
+            tasks = [tpe.submit(self._wait_for_vm) for _ in range(vms)]
+            for future in futures.as_completed(tasks):
+                try:
+                    vm = future.result()
+                    self.report_vm_actions(vm)
+                except Exception as e:
+                    LOG.exception(e)
+                finally:
+                    bar.update(1)
+
+    def wait_service_status(self, service, status=None, state=None,
+                            timeout=60, interval=1):
+        status = status or 'enabled'
+        state = state or 'up'
+        stop_time = time.time() + timeout if timeout else None
+        while True:
+            service = self.openstack.nova.services.list(
+                host=service.host, binary=service.binary)[0]
+            LOG.debug('service %s:%s status=%s, state=%s',
+                      service.host, service.binary,
+                      service.status, service.state)
+            if service.status == status and service.state == state:
+                break
+            if timeout and time.time() >= stop_time:
+                raise exceptions.WaitSerivceStatusTimeout(service=service.id,
+                                                          timeout=timeout)
+            time.sleep(interval)
+        return service
+
 
 class VMManager(VMManagerBase):
 
@@ -224,11 +310,19 @@ class VMManager(VMManagerBase):
         if not servers:
             return
 
-        bar = progressbar.factory(len(servers))
         LOG.info('delete %s vms ...', len(servers))
+        bar = progressbar.factory(len(servers))
         with futures.ThreadPoolExecutor(max_workers=workers) as executor:
-            for _ in executor.map(self.delete_vm, servers):
-                bar.update(1)
+            tasks = [
+                executor.submit(self.delete_vm, s, ignore_vm_error=True,
+                                wait=True) for s in servers]
+            for future in futures.as_completed(tasks):
+                try:
+                    future.result()
+                except Exception as e:
+                    LOG.error(e)
+                finally:
+                    bar.update(1)
         bar.close()
 
     def init_resources(self, name_prefix, net_num=1):
@@ -244,7 +338,8 @@ class VMManager(VMManagerBase):
         for params in [(1, 1, 10), (4, 4, 20), (8, 8, 40)]:
             self.create_flavor(name_prefix, params[0], params[1], params[2])
 
-    def create_vm(self, image_id, flavor_id, name=None, nics=None,
+    def create_vm(self, image_id, flavor_id, name=None, nics=None, az=None,
+                  min_count=None, max_count=None,
                   create_timeout=1800, wait=False):
         image, block_device_mapping_v2 = None, None
         if CONF.openstack.boot_from_volume:
@@ -263,7 +358,8 @@ class VMManager(VMManagerBase):
         vm = self.openstack.nova.servers.create(
             name, image, flavor_id, nics=nics,
             block_device_mapping_v2=block_device_mapping_v2,
-            availability_zone=CONF.openstack.boot_az)
+            availability_zone=az or CONF.openstack.boot_az,
+            min_count=min_count, max_count=max_count,)
         LOG.info('[vm: %s] booting, with %s', vm.id,
                  'bdm' if CONF.openstack.boot_from_volume else 'image')
         if wait:
@@ -401,7 +497,7 @@ class VMManager(VMManagerBase):
             attached_ports = []
             for i in range(CONF.task.attach_net_nums):
                 LOG.info('[vm: %s] attach interface %s', vm.id, i + 1)
-                attached = vm.interface_attach(None, CONF.openstack.attach_net,
+                attached = vm.interface_attach(None, self.get_attach_net(),
                                                None)
                 attached_ports.append(attached.port_id)
             ips = self._get_vm_ips(vm.id)
@@ -497,8 +593,13 @@ class VMManager(VMManagerBase):
         LOG.info('[vm: %s] volume %s detached', vm.id, volume_id)
 
     def test_vm(self):
+        invalid_actions = set(CONF.task.vm_test_actions) - \
+            set(constants.ACTIONS_ALL)
+        if invalid_actions:
+            LOG.error('Invalid action(s): %s', ' '.join(invalid_actions))
+            return
         LOG.info('start tasks, worker: %s, total: %s, actions: %s',
-                 CONF.task.worker, CONF.task.total, CONF.task.test_actions)
+                 CONF.task.worker, CONF.task.total, CONF.task.vm_test_actions)
         bar = progressbar.factory(CONF.task.total)
         with futures.ThreadPoolExecutor(max_workers=CONF.task.worker) as tpe:
             tasks = [
@@ -512,9 +613,13 @@ class VMManager(VMManagerBase):
                     LOG.exception(e)
                 finally:
                     bar.update(1)
-        if failed:
-            LOG.error(colorstr.RedStr('Summary: failed: %s/%s'),
-                      failed, CONF.task.total)
+        bar.close()
+        LOG.info('Summary: %(failed)s/%(total)s failed, '
+                 '%(success)s/%(total)s success.',
+                 {'failed': failed and colorstr.RedStr(failed) or 0,
+                  'success': colorstr.GreenStr(CONF.task.total - failed),
+                  'total': CONF.task.total})
+        self.cleanup_manager.cleanup()
 
     @check_if_skip(constants.RESIZE)
     def test_resize(self, vm):
@@ -567,3 +672,66 @@ class VMManager(VMManagerBase):
                 vm=vm.id, reason='src host and dest host are the same')
         LOG.info(colorstr.GreenStr('[vm: %s] live migrated, %s --> %s'),
                  vm.id, src_host, dest_host)
+
+    def test_evacuate(self):
+        compute_services = self.get_available_services(binary='nova-compute')
+        if len(compute_services) < 2:
+            msg = 'can not migrate, because active compute services is < 2'
+            LOG.warning(colorstr.YellowStr(msg))
+            return
+        test_az, test_host = None, None
+        vms = []
+        if CONF.openstack.boot_az:
+            try:
+                test_az, test_host = CONF.openstack.boot_az.split(':')
+            except:
+                LOG.error('Invalid evacuate_az: %s, it must be AZ:HOST',
+                          CONF.openstack.evacuate_az)
+                return
+        else:
+            LOG.info('create one vm, and select the host as evacuate host')
+            vm = self.create_vm(CONF.openstack.image_id,
+                                CONF.openstack.flavor_id,
+                                nics=self._get_nics(),
+                                wait=True)
+            test_az = getattr(vm, 'OS-EXT-AZ:availability_zone')
+            test_host = getattr(vm, 'OS-EXT-SRV-ATTR:host')
+            vms.append(vm)
+            LOG.info('created vm at %s:%s', test_az, test_host)
+
+        LOG.info('prepare other vm(s) at %s:%s', test_az, test_host)
+        bar = progressbar.factory(CONF.task.evacuate_vms_num - len(vms))
+        with futures.ThreadPoolExecutor(max_workers=CONF.task.worker) as tpe:
+            tasks = []
+            for _ in range(CONF.task.evacuate_vms_num - len(vms)):
+                tasks.append(
+                    tpe.submit(self.create_vm, CONF.openstack.image_id,
+                               CONF.openstack.flavor_id, nics=self._get_nics(),
+                               wait=True))
+            for future in futures.as_completed(tasks):
+                try:
+                    vm = future.result()
+                    vms.append(vm)
+                except Exception as e:
+                    LOG.warning('create vm failed, error=%s', e)
+                finally:
+                    bar.update(1)
+        if len(vms) != CONF.task.evacuate_vms_num:
+            LOG.error('there is not enough vms in host %s:%s',
+                      test_az, test_host)
+            return
+
+        LOG.info('try to force down %s:nova-compute', test_host)
+        service = self.openstack.nova.services.list(host=test_host,
+                                                    binary='nova-compute')[0]
+        self.openstack.force_down(service, True)
+        time.sleep(3)
+        try:
+            self.wait_service_status(service, state='down')
+            self.evacute_vms(test_host, vms=vms, wait=True)
+        except Exception as e:
+            LOG.error(e)
+        finally:
+            LOG.info('unset force down %s nova-compute', test_host)
+            self.openstack.force_down(service, False)
+            self.clean_vms(vms)

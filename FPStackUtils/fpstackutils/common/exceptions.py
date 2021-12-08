@@ -1,4 +1,3 @@
-
 from fp_lib.common import exceptions as base_exc
 
 
@@ -52,6 +51,10 @@ class RebootFailed(base_exc.BaseException):
 
 class WaitVMStatusTimeout(base_exc.BaseException):
     _msg = 'wait {vm} status timeout, expect: {expect}, actual: {actual}'
+
+
+class WaitSerivceStatusTimeout(base_exc.BaseException):
+    _msg = 'wait {service} status timeout({timeout}s)'
 
 
 class VMIsError(base_exc.BaseException):

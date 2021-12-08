@@ -10,7 +10,8 @@ PAUSE = 'pause'
 UNPAUSE = 'unpause'
 RESIZE = 'resize'
 MIGRATE = 'migrate'
-LIVE_MIGRATE = 'live_migrate'
+LIVE_MIGRATE = 'live-migrate'
+
 
 ACTIONS_ALL = [
     STOP, START, REBOOT, RESIZE, SUSPEND, RESUME, PAUSE, UNPAUSE,

@@ -22,7 +22,7 @@ task_opts = [
     cfg.IntOption('total', default=1),
     cfg.IntOption('worker', default=1),
     cfg.BooleanOption('attach_net', default=False),
-    cfg.ListOption('test_actions', default=constants.ACTIONS_ALL),
+    cfg.ListOption('vm_test_actions', default=constants.ACTIONS_ALL),
 
     cfg.IntOption('attach_net_nums', default=1),
     cfg.IntOption('attach_net_times', default=1),
@@ -41,6 +41,8 @@ task_opts = [
 
     cfg.IntOption('migrate_wait_interval', default=5),
     cfg.IntOption('migrate_wait_timeout', default=60),
+    cfg.IntOption('evacuate_vms_num', default=1),
+    cfg.BooleanOption('cleanup_error', default=True),
 ]
 
 
