@@ -25,16 +25,59 @@ nova_extensions = [ext for ext in
                                    "server_external_events")]
 
 
-class OpenstackClient(object):
-    V3_AUTH_KWARGS = ['username', 'password', 'project_name',
-                      'user_domain_name', 'project_domain_name']
+class Keystone(object):
 
     def __init__(self, *args, **kwargs):
         self.auth = v3.Password(*args, **kwargs)
         self.session = Session(auth=self.auth)
         self.keystone = client.Client(session=self.session)
+
+    def get_or_create_domain(self, name):
+        domains = self.keystone.domains.list(name=name)
+        return domains[0] if domains else self.keystone.domains.create(name)
+
+    def get_or_create_role(self, name, domain_name=None):
+        domain = None
+        if domain_name:
+            domain = self.get_or_create_domain(domain_name)
+        roles = self.keystone.roles.list(name=name, domain=domain)
+        return roles[0] if roles else self.keystone.roles.create(
+            name, domain=domain)
+
+    def get_or_create_project(self, name, domain_name, **kwargs):
+        domain = self.get_or_create_domain(domain_name)
+        projects = self.keystone.projects.list(name=name, domain=domain)
+        return projects[0] if projects else self.keystone.projects.create(
+            name, domain, **kwargs)
+
+    def get_or_create_user(self, name, domain_name, projec_name, **kwargs):
+        domain = self.get_or_create_domain(domain_name)
+        project = self.get_or_create_project(projec_name, domain_name)
+        role_name = kwargs.pop('role_name', None)
+        users = self.keystone.users.list(name=name, domain=domain)
+        user = users[0] if users else self.keystone.users.create(
+            name, domain=domain, project=project, **kwargs
+        )
+
+        if role_name:
+            role = self.get_or_create_role(role_name)
+            self.keystone.roles.grant(role, user=user, project=project)
+        return user
+
+    def get_quota(self):
+        project_id = self.session.get_project_id()
+        return self.nova.quotas.get(project_id)
+
+
+class OpenstackClient(Keystone):
+    V3_AUTH_KWARGS = ['username', 'password', 'project_name',
+                      'user_domain_name', 'project_domain_name']
+
+    def __init__(self, *args, **kwargs):
+        super(OpenstackClient, self).__init__(*args, **kwargs)
         self.neutron = neutron_client.Client(session=self.session)
-        self.nova = nova_client.Client(NOVA_API_VERSION, session=self.session,
+        self.nova = nova_client.Client(NOVA_API_VERSION,
+                                       session=self.session,
                                        extensions=nova_extensions)
         self.glance = glanceclient.Client('2', session=self.session)
         self.cinder = cinder_client.Client('2', session=self.session)
