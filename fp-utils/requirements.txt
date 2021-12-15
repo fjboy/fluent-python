@@ -8,3 +8,4 @@ gevent==21.0.0
 urllib3==1.0.0
 beautifulsoup4==4.0.0
 Pillow==6.0.0
+webdavclient3

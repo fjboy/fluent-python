@@ -1,13 +1,10 @@
 import os
-from webdav3.client import Client
-from datetime import datetime
-from webdav3.exceptions import LocalResourceNotFound
 
-import importlib
+from webdav3.client import Client
+from webdav3 import exceptions
 
 from fp_lib.common import cliparser
 from fp_lib.common import log
-from fp_lib import system
 
 LOG = log.getLogger(__name__)
 
@@ -46,7 +43,7 @@ class JianguoWebDavClient(WebDavAuth):
             self.webdav.upload(remote_path, file_path)
             LOG.debug('uploaded file %s', file_name)
             return self.webdav.get_url(remote_path)
-        except LocalResourceNotFound:
+        except exceptions.LocalResourceNotFound:
             LOG.error('file %s is not found', file_path)
 
 
