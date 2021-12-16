@@ -3,7 +3,6 @@ import os
 from webdav3.client import Client
 from webdav3 import exceptions
 
-from fp_lib.common import cliparser
 from fp_lib.common import log
 
 LOG = log.getLogger(__name__)

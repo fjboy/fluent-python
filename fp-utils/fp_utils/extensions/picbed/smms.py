@@ -1,9 +1,7 @@
-import os
 import requests
 import json
 
 from fp_lib.common import cliparser
-from fp_utils.extensions.webdav import base
 
 
 URL = 'https://sm.ms/api/v2'
