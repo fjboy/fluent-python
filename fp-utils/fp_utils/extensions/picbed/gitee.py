@@ -5,6 +5,7 @@ import requests
 
 from fp_lib.common import cliparser
 from fp_lib.common import log
+from fp_lib import date
 
 LOG = log.getLogger(__name__)
 
@@ -19,16 +20,27 @@ class GiteeDriver(object):
 
     def upload(self, file_path, remote_dir=None):
         file_name = os.path.basename(file_path)
-        remote_path = remote_dir and '{}/{}'.format(
-            remote_dir, file_name) or file_name
+        remote_path = '{}/{}'.format(remote_dir or self._make_upload_path(),
+                                     file_name)
         url = 'https://gitee.com/api/v5/repos/{}/{}/contents/{}'.format(
             self.userspace, self.repo, remote_path)
         data = {
             'access_token': self.token,
             'content': self._base64(file_path),
             'message': 'add file {}'.format(file_name)}
+        try:
+            resp_data = self._post(url, data)
+        except requests.exceptions.HTTPError as e:
+            LOG.exception(e)
+            raise
+        return resp_data
+
+    def _post(self, url, data):
         LOG.debug('post url: %s', url)
         resp = self.session.post(url, data)
+        LOG.debug('Resp: %s %s %s',
+                  resp.status_code, resp.reason, resp.content)
+        resp.raise_for_status()
         return json.loads(resp.content)
 
     def _base64(self, file_path):
@@ -36,6 +48,9 @@ class GiteeDriver(object):
         with open(os.path.abspath(file_path), 'rb') as f:
             base64_data = base64.b64encode(f.read())
         return base64_data
+
+    def _make_upload_path(self):
+        return date.now_str(date_format='%Y/%m/%d')
 
 
 class GiteeUpload(cliparser.CliBase):
