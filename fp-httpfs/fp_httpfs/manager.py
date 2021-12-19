@@ -21,8 +21,8 @@ def get_version():
     try:
         version = pkg_resources.get_distribution('fp.httpfs').version
     except pkg_resources.DistributionNotFound:
-        version = 'unknown'
-    
+        version = 'beta'
+
     return version
 
 

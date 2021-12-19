@@ -1,5 +1,5 @@
 const MESSAGES = {
-    en: {
+    'en': {
         ok: 'ok',
         cancel: 'Cancel',
         lang: 'Language',
@@ -52,17 +52,18 @@ const MESSAGES = {
         fileNameCannotEmpty: 'file name can not be empty',
         getSearchHistoryFailed: 'get search history failed',
     },
-    zh: {
+    'zh-CN': {
         ok: '确定',
         cancel: '取消',
         lang: '语言',
         en: '英文',
         zh: '中文',
+        'zh-CN': '简体中文',
         user: '用户',
         setting: '设置',
         signOut: '注销',
         fileUploadProgress: '文件上传进度',
-        scanLink: '扫一扫连接',
+        scanLink: '扫码连接',
         scanUsePhoneBrower: '打开手机浏览器扫一扫',
         search: '搜索',
         uploadFiles: '上传文件',
@@ -107,7 +108,10 @@ const MESSAGES = {
     },
 };
 
-const I18N = new VueI18n({locale: 'zh', messages: MESSAGES})
+const I18N = new VueI18n({
+    locale: navigator.language || 'zh-CN',
+    messages: MESSAGES
+})
 
 function getUserSettedLang() {
     const cookies = document.cookie.split(';');

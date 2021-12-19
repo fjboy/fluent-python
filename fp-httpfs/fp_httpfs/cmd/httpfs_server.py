@@ -6,8 +6,6 @@ import mimetypes
 
 from fp_lib.common import log
 
-from fp_httpfs import server
-
 
 def main():
     parser = argparse.ArgumentParser('Fluent HTTP FS Command')
@@ -28,6 +26,8 @@ def main():
     # NOTE(zbw) For windows host, MIME type of js file be
     # 'text/plain', so add this type before start http server.
     mimetypes.add_type('application/javascript', '.js')
+
+    from fp_httpfs import server                                   # noqa
 
     fs_server = server.FluentHttpFS(fs_root=args.root, port=args.port,
                                     password=args.password)

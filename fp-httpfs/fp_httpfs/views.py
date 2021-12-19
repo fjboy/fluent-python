@@ -17,16 +17,10 @@ FS_CONTROLLER = None
 AUTH_CONTROLLER = None
 
 SERVER_NAME = 'HttpFS'
-VERSION = '1.1 beta'
-
-
 DEFAULT_CONTEXT = {
     'name': SERVER_NAME,
     'version': manager.get_version()
 }
-
-
-import pbr
 
 
 def get_json_response(data, status=200):
@@ -67,8 +61,8 @@ class IndexView(views.MethodView):
 class FaviconView(views.MethodView):
 
     def get(self):
-        return flask.send_from_directory(current_app.static_folder,
-                                         'httpfs.png')
+        return flask.send_from_directory(
+            os.path.join(current_app.static_folder, 'icon'), 'httpfs.png')
 
 
 class FSView(views.MethodView):

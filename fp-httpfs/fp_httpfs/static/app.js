@@ -287,7 +287,7 @@ new Vue({
         }
     },
     created: function () {
-        setDisplayLang(getUserSettedLang());
+        setDisplayLang(getUserSettedLang() || navigator.language);
         this.log = new LoggerWithBVToast(this.$bvToast, false)
         this.log.debug('vue app created');
         this.goTo(-1);
