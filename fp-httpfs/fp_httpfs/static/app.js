@@ -4,6 +4,9 @@ import {HttpFSClient} from './httpfsclient.js'
 new Vue({
     el: '#app',
     data: {
+        conf: {
+            pbarHeight: {current: 5, min:1, max:10},
+        },
         children: [],
         downloadFile: { name: '', qrcode: '' },
         showAll: false,
@@ -20,7 +23,7 @@ new Vue({
         showPardir: false,
         currentDirList: [],
         log: null,
-        searchHistory: []
+        searchHistory: [],
     },
     methods: {
         refreshChildren: function () {
@@ -120,10 +123,10 @@ new Vue({
             this.fsClient.rm(
                 this.getPathText(self.pathItems).concat([item.name]).join('/'), false
             ).then(successs => {
-                self.log.info('删除成功');
+                self.log.info(I18N.t('deleteSuccess'));
                 self.refreshChildren();
             }).catch(error => {
-                self.log.error(`请求失败, ${error.status}, ${error.data.error}`);
+                self.log.error(`${I18N.t('deleteFailed')}, ${error.status}, ${error.data.error}`);
             });
         },
         toggleShowAll: function () {
@@ -142,9 +145,9 @@ new Vue({
             this.rename(
                 self.getFSPath(self.renameItem.name), self.renameItem.newName
             ).then(success => {
-                self.log.info('重命名成功');
+                self.log.info(I18N.t('renameSuccess'));
             }).catch(error => {
-                self.log.error(`重命名失败, ${error.status} ${error.data.error}`, 5000)
+                self.log.error(`${I18N.t('renameFailed')}, ${error.status} ${error.data.error}`, 5000)
             });
         },
         showRenameModal: function (item) {
@@ -164,32 +167,32 @@ new Vue({
             let newDir = self.getDirPath(self.currentDirList.concat(self.newDir.name));
             self.fsClient.mkdir(newDir).then(success => {
                 console.log(success)
-                self.log.info('目录创建成功');
+                self.log.info(I18N.t('createDirSuccess'));
                 self.refreshChildren();
             }).catch(error => {
                 console.error(error);
-                self.log.error(`目录创建失败, ${error.status}, ${error.data.error}`, autoHideDelay = 5000)
+                self.log.error(`${I18N.t('createDirFailed')}, ${error.status}, ${error.data.error}`, autoHideDelay = 5000)
             });
         },
         uploadFiles: function (files) {
             var self = this;
             if (files.length == 0) { return };
-            self.log.info(`准备上传 ${files.length} 个文件`);
+            self.log.debug(`准备上传 ${files.length} 个文件`);
             for (let index = 0; index < files.length; index++) {
                 let file = files[index];
                 let progress = { file: file.name, loaded: 0, total: 100 };
                 self.uploadQueue.tasks.push(progress);
                 self.fsClient.upload(
                     self.getPathText(self.pathItems).join('/'), file,
-                    function(e){
-                        progress.loaded = e.loaded;
-                        progress.total = e.total;
+                    uploadEvent => {
+                        progress.loaded = uploadEvent.loaded;
+                        progress.total = uploadEvent.total;
                     }
                 ).then(success => {
                     self.refreshChildren()
                     self.uploadQueue.completed += 1;
                 }).catch(error => {
-                    self.log.error(`文件上传失败, ${status}, ${data.error}`, 5000)
+                    self.log.error(`${I18N.t('uploadFailed')}, ${error.data.error}`, 5000)
                 });
             }
         },
@@ -254,7 +257,7 @@ new Vue({
             this.fsClient.find(this.searchPartern).then(success => {
                 self.children = success.data.search.dirs;
             }).catch(error => {
-                self.log.error(`搜索失败, ${error.status}, ${error.data.error}`, 5000)
+                self.log.error(`${I18N.t('searchFailed')}, ${error.status}, ${error.data.error}`, 5000)
             });
         },
         showQrcode: function (elemId, text) {
@@ -284,6 +287,9 @@ new Vue({
             }).catch*(error => {
                 self.log.error(`请求失败，${error.data.error}`);
             });
+        },
+        saveSettings: function(){
+            this.log.warn('TODO: saving settings');
         }
     },
     created: function () {
