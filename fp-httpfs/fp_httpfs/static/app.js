@@ -57,7 +57,7 @@ new Vue({
                 self.children = success.data.dir.children;
                 self.diskUsage = success.data.dir.disk_usage;
             }).catch(error => {
-                self.log.error(`请求失败，${error.status}, ${error.data.error}`);
+                self.log.error(`请求失败，${error}`);
             });
         },
         getPathText: function (pathItems) {
@@ -90,7 +90,7 @@ new Vue({
                 self.children = success.data.dir.children;
                 self.diskUsage = success.data.dir.disk_usage;
             }).catch(error => {
-                self.log.error(`请求失败，${error.status}, ${error.data.error}`);
+                self.log.error(`请求失败，${error}`);
             });
         },
         setFileQrcode: function (dirItem) {
@@ -126,7 +126,7 @@ new Vue({
                 self.log.info(I18N.t('deleteSuccess'));
                 self.refreshChildren();
             }).catch(error => {
-                self.log.error(`${I18N.t('deleteFailed')}, ${error.status}, ${error.data.error}`);
+                self.log.error(`${I18N.t('deleteFailed')}, ${error}`);
             });
         },
         toggleShowAll: function () {
@@ -147,7 +147,7 @@ new Vue({
             ).then(success => {
                 self.log.info(I18N.t('renameSuccess'));
             }).catch(error => {
-                self.log.error(`${I18N.t('renameFailed')}, ${error.status} ${error.data.error}`, 5000)
+                self.log.error(`${I18N.t('renameFailed')}, ${error}`, 5000)
             });
         },
         showRenameModal: function (item) {
@@ -171,7 +171,7 @@ new Vue({
                 self.refreshChildren();
             }).catch(error => {
                 console.error(error);
-                self.log.error(`${I18N.t('createDirFailed')}, ${error.status}, ${error.data.error}`, autoHideDelay = 5000)
+                self.log.error(`${I18N.t('createDirFailed')}, ${error}`, autoHideDelay = 5000)
             });
         },
         uploadFiles: function (files) {
@@ -192,7 +192,7 @@ new Vue({
                     self.refreshChildren()
                     self.uploadQueue.completed += 1;
                 }).catch(error => {
-                    self.log.error(`${I18N.t('uploadFailed')}, ${error.data.error}`, 5000)
+                    self.log.error(`${I18N.t('uploadFailed')}, ${error}`, 5000)
                 });
             }
         },
@@ -212,7 +212,7 @@ new Vue({
             ).then(success => {
                 self.fileEditor.content = success.data;
             }).catch(error => {
-                let msg = `${I18N.t('getfileContentFailed')}, ${error.status}, ${error.data.error}`;
+                let msg = `${I18N.t('getfileContentFailed')}, ${error}`;
                 self.log.error(msg, 5000);
             })
         },
@@ -257,7 +257,7 @@ new Vue({
             this.fsClient.find(this.searchPartern).then(success => {
                 self.children = success.data.search.dirs;
             }).catch(error => {
-                self.log.error(`${I18N.t('searchFailed')}, ${error.status}, ${error.data.error}`, 5000)
+                self.log.error(`${I18N.t('searchFailed')}, ${error.status}`, 5000)
             });
         },
         showQrcode: function (elemId, text) {
@@ -285,7 +285,7 @@ new Vue({
                 self.children = success.data.dir.children;
                 self.diskUsage = success.data.dir.disk_usage;
             }).catch*(error => {
-                self.log.error(`请求失败，${error.data.error}`);
+                self.log.error(`请求失败，${error}`);
             });
         },
         saveSettings: function(){
