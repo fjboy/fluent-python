@@ -54,15 +54,16 @@
                     class="btn btn-sm btn-outline-secondary">{{I18N.t('uploadFiles')}}</label>
                 <label for="inputUploadDir" class="btn btn-sm btn-outline-secondary">{{I18N.t('uploadDir')}}</label>
                 <label type="button" class="btn btn-sm btn-outline-secondary" v-b-modal.modal-newdir>{{I18N.t('newDir')}}</label>
-                <label type="button" class="btn btn-sm btn-outline-secondary" v-on:click="refreshDir()" v-b-tooltip.hover :title="I18N.t('refresh')">
-                    <b-icon icon="arrow-repeat"></b-icon></label>
+                <label class="btn btn-sm btn-danger" v-on:click="deleteSeleted()" >{{I18N.t('delete')}}</label>
+                <label type="button" class="btn btn-sm btn-outline-secondary" v-on:click="refreshDir()"
+                       v-b-tooltip.hover :title="I18N.t('refresh')"> <b-icon icon="arrow-repeat"></b-icon>
+                </label>
                 <label>
                     <b-icon icon="hdd-fill" variant="secondary"></b-icon> {{getDiskUsage()}}
                     <b-progress :max="diskUsage.total" variant="secondary" style="height: 4px;">
                         <b-progress-bar :value="diskUsage.used"> </b-progress-bar>
                     </b-progress>
                 </label>
-
                 <form id="formFileUpload">
                     <input type="file" name="file" class="custom-file-input" id="inputUploadFile" required hidden
                         multiple v-on:change="uploadFile()">
@@ -92,7 +93,6 @@
                         </li>
                     </ol>
                 </nav>
-
             </div>
         </div>
 
@@ -101,6 +101,7 @@
                 <table class="table table-hover table-sm " style="width: 100%;">
                     <thead class="table-light">
                         <tr>
+                            <th><b-form-checkbox v-model="selected.all" :indeterminate='selected.indeterminate' @change='toggleAll'></b-form-checkbox></th>
                             <th>{{I18N.t('file')}} <b-icon icon="sort-alpha-down"></b-icon></th>
                             <th>{{I18N.t('size')}} </th>
                             <th>{{I18N.t('modifyTime')}}</th>
@@ -109,6 +110,7 @@
                     </thead>
                     <tbody>
                         <tr v-for="(item, index) in children" v-model="children">
+                            <td> <b-form-checkbox :value="item" v-model='selected.items[index]' @change='toggleSelected'></b-form-checkbox></th>
                             <td v-if='item.type=="folder"' v-on:click="clickPath(item)">
                                 <b-icon icon="folder-fill" variant="warning"></b-icon> {{item.name}}
                                 <p v-if='showPardir==true'><small class="text-muted">{{item.pardir}}</small>

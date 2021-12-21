@@ -24,6 +24,7 @@ new Vue({
         currentDirList: [],
         log: null,
         searchHistory: [],
+        selected: {all: false, indeterminate: false, items: []},
     },
     methods: {
         refreshChildren: function () {
@@ -106,15 +107,24 @@ new Vue({
             this.showQrcode('fileQrcode', this.fsClient.getFSLink(filePath))
         },
         makeSureDelete: function (item) {
+            this.makeSureDeleteItems([item])
+        },
+        makeSureDeleteItems: function (items) {
             var self = this;
-            this.$bvModal.msgBoxConfirm(item.name, {
-                title: I18N.t('makeSureDelete'),
-                okVariant: 'danger',
+            var files = []
+            items.forEach(item => {
+                files.push(item.name)
+            });
+            this.$bvModal.msgBoxConfirm(this.$createElement('div', { domProps: { innerHTML: files.join('<br/>') }}),{
+                title: I18N.t('makeSureDelete'), okVariant: 'danger',
             }).then(value => {
-                self.log.debug(`make sure delete? ${value}`)
                 if (value == true) {
-                    self.deleteDir(item);
-                    self.refreshChildren();
+                    items.forEach(item => {
+                        self.deleteDir(item);
+                    });
+                    this.selected.items = [];
+                    this.selected.all = false;
+                    this.selected.indeterminate = false;
                 }
             });
         },
@@ -128,6 +138,42 @@ new Vue({
             }).catch(error => {
                 self.log.error(`${I18N.t('deleteFailed')}, ${error}`);
             });
+        },
+        deleteSeleted: function(){
+            var deleteItems = []
+            this.selected.items.forEach(item => {
+                if(item){
+                    deleteItems.push(item);
+                }
+            })
+            if (deleteItems.length > 0){
+                this.makeSureDeleteItems(deleteItems);
+            }
+        },
+        toggleAll: function(selectAll){
+            if (selectAll == true){
+                this.selected.items = this.children.slice();
+                this.selected.indeterminate = false;
+            } else {
+                this.selected.items = [];
+                this.selected.indeterminate = false;
+            }
+        },
+        toggleSelected: function(selectedItem){
+            var selectedNum = 0
+            this.selected.items.forEach(item => {
+                if(item){ selectedNum += 1; }
+            })
+            if (selectedNum === 0){
+                this.selected.indeterminate = false;
+                this.selected.all = false;
+            } else if (selectedNum >= this.children.length) {
+                this.selected.indeterminate = false;
+                this.selected.all = true;
+            } else {
+                this.selected.indeterminate = true;
+                this.selected.all = false;
+            }
         },
         toggleShowAll: function () {
             this.showAll = !this.showAll;
