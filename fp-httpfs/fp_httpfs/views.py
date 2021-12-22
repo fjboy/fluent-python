@@ -23,7 +23,7 @@ DEFAULT_CONTEXT = {
 }
 
 
-def get_json_response(data, status=200):
+def json_response(data, status=200):
     return flask.Response(json.dumps(data), status=status,
                           headers={'Content-Type': 'application/json'})
 
@@ -74,22 +74,20 @@ class FSView(views.MethodView):
         try:
             children = FS_CONTROLLER.ls(req_path, all=all)
         except FileNotFoundError:
-            return get_json_response({'error': 'file not found'}, status=404)
-        return {
-            'dir': {
-                'path': req_path,
-                'children': children,
-                'disk_usage': {
-                    'used': usage.used, 'total': usage.total
+            return json_response({'error': 'file not found'}, status=404)
+        return json_response({
+                'dir': {
+                    'path': req_path,
+                    'children': children,
+                    'disk_usage': {'used': usage.used, 'total': usage.total}
                 }
-            }
-        }
+            })
 
     def delete(self, dir_path):
         req_path = dir_path.split('/')[1:]
         force = flask.request.args.get('force', False)
         FS_CONTROLLER.rm(req_path, force=force)
-        return {'result': 'delete success'}
+        return json_response({'result': 'delete success'})
 
     def post(self, dir_path):
         """Create dir
@@ -100,7 +98,7 @@ class FSView(views.MethodView):
         if FS_CONTROLLER.path_exists(req_path):
             raise ValueError('path is already exists: %s' % req_path)
         FS_CONTROLLER.mkdir(req_path)
-        return {'result': 'create success'}
+        return json_response({'result': 'create success'})
 
     def put(self, dir_path):
         """Rename file/directory
@@ -110,9 +108,9 @@ class FSView(views.MethodView):
         data = json.loads(flask.request.data)
         new_name = data.get('dir', {}).get('new_name')
         if not new_name:
-            return get_json_response({'error': 'new name is none'}, status=400)
+            return json_response({'error': 'new name is none'}, status=400)
         FS_CONTROLLER.rename(req_path, new_name)
-        return {'result': 'rename success'}
+        return json_response({'result': 'rename success'})
 
 
 class FileView(views.MethodView):
@@ -133,23 +131,24 @@ class FileView(views.MethodView):
                                              as_attachment=False)
         except FileNotFoundError as e:
             LOG.exception(e)
-            return get_json_response({'error': 'file not found'}, status=404)
+            return json_response({'error': 'file not found'}, status=404)
         except Exception as e:
             LOG.exception(e)
-            return get_json_response({'error': e}, status=500)
+            return json_response({'error': e}, status=500)
 
     def post(self, dir_path):
         f = flask.request.files.get('file')
         if not f:
-            return get_json_response({'error': 'file is null'}, status=401)
+            return json_response({'error': 'file is null'}, status=401)
         FS_CONTROLLER.save(dir_path.split('/')[1:], f)
-        return {'files': {'result': 'file save success'}}
+        return json_response({'files': {'result': 'file save success'}})
 
 
 class SearchView(views.MethodView):
 
     def get(self):
-        return {'search': {'history': FS_CONTROLLER.search_history.all()}}
+        return json_response(
+            {'search': {'history': FS_CONTROLLER.search_history.all()}})
 
     def post(self):
         """
@@ -158,9 +157,9 @@ class SearchView(views.MethodView):
         data = json.loads(flask.request.data)
         partern = data.get('search', {}).get('partern')
         if not partern:
-            return get_json_response({'error': 'partern is none'}, status=400)
+            return json_response({'error': 'partern is none'}, status=400)
         matched_pathes = FS_CONTROLLER.find(partern)
-        return {'search': {'dirs': matched_pathes}}
+        return json_response({'search': {'dirs': matched_pathes}})
 
 
 class AuthView(views.MethodView):
@@ -168,17 +167,17 @@ class AuthView(views.MethodView):
     def post(self):
         data = flask.request.data
         if not data:
-            return get_json_response({'error': 'auth info not found'},
+            return json_response({'error': 'auth info not found'},
                                      status=400)
         auth = json.loads(data).get('auth', {})
         LOG.debug('auth with: %s', auth)
         if AUTH_CONTROLLER.is_valid(auth.get('username'),
                                     auth.get('password')):
             session['username'] = auth.get('username')
-            return get_json_response({}, status=200)
+            return json_response({}, status=200)
         else:
-            return get_json_response({'error': 'auth failed'}, status=401)
+            return json_response({'error': 'auth failed'}, status=401)
 
     def delete(self):
         session.clear()
-        return get_json_response({}, status=204)
+        return json_response({}, status=204)

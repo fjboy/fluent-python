@@ -1,8 +1,0 @@
-python-neutronclient
-python-novaclient
-python-glanceclient
-python-cinderclient
-python-keystoneclient
-keystoneauth1
-docker
-Yaml
